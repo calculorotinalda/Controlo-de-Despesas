@@ -1,0 +1,7 @@
+{
+  "name": "Atelier Financeiro",
+  "description": "Uma aplicação de gestão financeira pessoal sofisticada e intuitiva, com design editorial e insights inteligentes.",
+  "requestFramePermissions": [
+    "geolocation"
+  ]
+}

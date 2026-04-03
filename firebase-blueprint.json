@@ -1,0 +1,54 @@
+{
+  "entities": {
+    "UserProfile": {
+      "title": "Perfil do Utilizador",
+      "description": "Dados do utilizador e preferências da aplicação.",
+      "type": "object",
+      "properties": {
+        "uid": { "type": "string" },
+        "displayName": { "type": "string" },
+        "email": { "type": "string", "format": "email" },
+        "photoURL": { "type": "string" },
+        "currency": { "type": "string", "enum": ["EUR", "USD", "GBP"] },
+        "createdAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["uid", "email"]
+    },
+    "Transaction": {
+      "title": "Transação",
+      "description": "Registo de uma entrada ou saída financeira.",
+      "type": "object",
+      "properties": {
+        "uid": { "type": "string" },
+        "userId": { "type": "string" },
+        "amount": { "type": "number" },
+        "type": { "type": "string", "enum": ["income", "expense"] },
+        "category": { "type": "string" },
+        "description": { "type": "string" },
+        "date": { "type": "string", "format": "date-time" },
+        "createdAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["userId", "amount", "type", "category", "date"]
+    },
+    "Category": {
+      "title": "Categoria",
+      "description": "Categorias de despesas ou rendimentos.",
+      "type": "object",
+      "properties": {
+        "name": { "type": "string" },
+        "icon": { "type": "string" },
+        "color": { "type": "string" }
+      }
+    }
+  },
+  "firestore": {
+    "/users/{userId}": {
+      "schema": "UserProfile",
+      "description": "Documento de perfil do utilizador."
+    },
+    "/users/{userId}/transactions/{transactionId}": {
+      "schema": "Transaction",
+      "description": "Lista de transações do utilizador."
+    }
+  }
+}
