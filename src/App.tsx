@@ -13,33 +13,11 @@ import {
   Sparkles, 
   User as UserIcon,
   LogOut,
-  ArrowRight,
-  ChevronRight,
   Wallet,
-  PieChart as PieChartIcon,
   X,
-  Check,
-  Loader2
+  Loader2,
+  Trash2
 } from 'lucide-react';
-import { 
-  collection, 
-  query, 
-  orderBy, 
-  onSnapshot, 
-  addDoc, 
-  serverTimestamp, 
-  Timestamp,
-  doc,
-  setDoc,
-  getDoc
-} from 'firebase/firestore';
-import { 
-  signInWithPopup, 
-  GoogleAuthProvider, 
-  onAuthStateChanged, 
-  signOut,
-  User
-} from 'firebase/auth';
 import { 
   AreaChart, 
   Area, 
@@ -52,32 +30,23 @@ import {
   Pie,
   Cell
 } from 'recharts';
-import { format } from 'date-fns';
+import { format, parseISO } from 'date-fns';
 import { pt } from 'date-fns/locale';
 import { motion, AnimatePresence } from 'motion/react';
 import { GoogleGenAI } from "@google/genai";
-import { db, auth } from './firebase';
 import { cn } from './lib/utils';
+import { storageService } from './services/storage';
 
 // --- Types ---
 
 interface Transaction {
   id: string;
-  userId: string;
   amount: number;
   type: 'income' | 'expense';
   category: string;
   description: string;
-  date: Date;
-  createdAt: any;
-}
-
-interface UserProfile {
-  uid: string;
-  displayName: string;
-  email: string;
-  photoURL: string;
-  currency: string;
+  date: string;
+  createdAt: string;
 }
 
 // --- Constants ---
@@ -145,69 +114,33 @@ const Card = ({ children, className }: { children: React.ReactNode, className?: 
 // --- Main App ---
 
 export default function App() {
-  const [user, setUser] = useState<User | null>(null);
   const [loading, setLoading] = useState(true);
   const [transactions, setTransactions] = useState<Transaction[]>([]);
+  const [userProfile, setUserProfile] = useState({ displayName: 'Utilizador', currency: 'EUR' });
   const [activeTab, setActiveTab] = useState<'dashboard' | 'history' | 'ai'>('dashboard');
   const [showAddModal, setShowAddModal] = useState(false);
   const [aiAdvice, setAiAdvice] = useState<string>('');
   const [isAiLoading, setIsAiLoading] = useState(false);
 
-  // Auth
+  // Load Data from Local Storage
   useEffect(() => {
-    const unsubscribe = onAuthStateChanged(auth, (u) => {
-      setUser(u);
-      setLoading(false);
-      if (u) {
-        // Ensure user doc exists
-        const userRef = doc(db, 'users', u.uid);
-        getDoc(userRef).then((snap) => {
-          if (!snap.exists()) {
-            setDoc(userRef, {
-              uid: u.uid,
-              displayName: u.displayName || '',
-              email: u.email || '',
-              photoURL: u.photoURL || '',
-              currency: 'EUR',
-              createdAt: serverTimestamp()
-            });
-          }
-        });
-      }
-    });
-    return unsubscribe;
+    const data = storageService.getData();
+    setTransactions(data.transactions);
+    setUserProfile(data.userProfile);
+    setLoading(false);
   }, []);
 
-  // Transactions Listener
-  useEffect(() => {
-    if (!user) return;
-    const q = query(
-      collection(db, `users/${user.uid}/transactions`),
-      orderBy('date', 'desc')
-    );
-    const unsubscribe = onSnapshot(q, (snap) => {
-      const data = snap.docs.map(doc => ({
-        id: doc.id,
-        ...doc.data(),
-        date: (doc.data().date as Timestamp).toDate()
-      })) as Transaction[];
-      setTransactions(data);
-    }, (err) => {
-      console.error("Firestore Error:", err);
-    });
-    return unsubscribe;
-  }, [user]);
-
-  const login = async () => {
-    const provider = new GoogleAuthProvider();
-    try {
-      await signInWithPopup(auth, provider);
-    } catch (err) {
-      console.error(err);
-    }
+  const refreshData = () => {
+    const data = storageService.getData();
+    setTransactions(data.transactions);
   };
 
-  const logout = () => signOut(auth);
+  const handleDelete = (id: string) => {
+    if (window.confirm("Deseja eliminar esta transação?")) {
+      storageService.deleteTransaction(id);
+      refreshData();
+    }
+  };
 
   // Calculations
   const stats = useMemo(() => {
@@ -223,7 +156,6 @@ export default function App() {
   }, [transactions]);
 
   const chartData = useMemo(() => {
-    // Last 7 days
     const days = Array.from({ length: 7 }, (_, i) => {
       const d = new Date();
       d.setDate(d.getDate() - i);
@@ -232,7 +164,7 @@ export default function App() {
 
     return days.map(day => {
       const dayTransactions = transactions.filter(t => 
-        format(t.date, 'yyyy-MM-dd') === day
+        t.date.split('T')[0] === day
       );
       const dayBalance = dayTransactions.reduce((acc, t) => 
         t.type === 'income' ? acc + t.amount : acc - t.amount, 0
@@ -253,7 +185,7 @@ export default function App() {
   }, [transactions]);
 
   const getAiAdvice = async () => {
-    if (!user || transactions.length === 0) return;
+    if (transactions.length === 0) return;
     setIsAiLoading(true);
     try {
       const ai = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY! });
@@ -285,48 +217,22 @@ export default function App() {
     );
   }
 
-  if (!user) {
-    return (
-      <div className="h-screen flex flex-col items-center justify-center p-8 bg-surface text-center">
-        <motion.div 
-          initial={{ opacity: 0, y: 20 }}
-          animate={{ opacity: 1, y: 0 }}
-          className="max-w-md"
-        >
-          <div className="w-20 h-20 bg-primary rounded-2xl flex items-center justify-center mx-auto mb-8 shadow-xl">
-            <Wallet className="w-10 h-10 text-on-primary" />
-          </div>
-          <h1 className="text-4xl mb-4">Atelier Financeiro</h1>
-          <p className="text-on-surface-variant mb-12 text-lg">
-            A sua jornada financeira, tratada com a elegância de um atelier.
-          </p>
-          <Button onClick={login} size="lg" className="w-full">
-            Entrar com Google
-          </Button>
-        </motion.div>
-      </div>
-    );
-  }
-
   return (
     <div className="min-h-screen bg-surface pb-24">
       {/* Header */}
       <header className="p-6 flex items-center justify-between">
         <div className="flex items-center gap-3">
-          <img 
-            src={user.photoURL || ''} 
-            alt={user.displayName || ''} 
-            className="w-10 h-10 rounded-full"
-            referrerPolicy="no-referrer"
-          />
+          <div className="w-10 h-10 rounded-full bg-primary-container flex items-center justify-center text-on-primary">
+            <UserIcon className="w-6 h-6" />
+          </div>
           <div>
             <p className="text-xs text-on-surface-variant">Bem-vindo,</p>
-            <p className="font-semibold">{user.displayName?.split(' ')[0]}</p>
+            <p className="font-semibold">{userProfile.displayName}</p>
           </div>
         </div>
-        <button onClick={logout} className="p-2 rounded-full hover:bg-surface-container-highest">
-          <LogOut className="w-5 h-5 text-on-surface-variant" />
-        </button>
+        <div className="text-[10px] bg-secondary-container text-secondary px-2 py-1 rounded-full font-bold uppercase tracking-tighter">
+          Modo Offline
+        </div>
       </header>
 
       <main className="px-6 space-y-8">
@@ -439,7 +345,7 @@ export default function App() {
                   <p className="text-center text-on-surface-variant py-12">Nenhuma transação encontrada.</p>
                 ) : (
                   transactions.map((t) => (
-                    <div key={t.id} className="flex items-center justify-between p-4 bg-surface-container-low rounded-xl">
+                    <div key={t.id} className="group flex items-center justify-between p-4 bg-surface-container-low rounded-xl">
                       <div className="flex items-center gap-4">
                         <div className={cn(
                           "w-12 h-12 rounded-full flex items-center justify-center",
@@ -451,16 +357,24 @@ export default function App() {
                           <p className="font-semibold">{t.category}</p>
                           <p className="text-xs text-on-surface-variant">{t.description || 'Sem descrição'}</p>
                           <p className="text-[10px] text-on-surface-variant/70 uppercase tracking-tighter">
-                            {format(t.date, "d 'de' MMMM", { locale: pt })}
+                            {format(parseISO(t.date), "d 'de' MMMM", { locale: pt })}
                           </p>
                         </div>
                       </div>
-                      <p className={cn(
-                        "font-display font-bold text-lg",
-                        t.type === 'income' ? "text-secondary" : "text-tertiary"
-                      )}>
-                        {t.type === 'income' ? '+' : '-'}{t.amount.toLocaleString('pt-PT', { style: 'currency', currency: 'EUR' })}
-                      </p>
+                      <div className="flex items-center gap-4">
+                        <p className={cn(
+                          "font-display font-bold text-lg",
+                          t.type === 'income' ? "text-secondary" : "text-tertiary"
+                        )}>
+                          {t.type === 'income' ? '+' : '-'}{t.amount.toLocaleString('pt-PT', { style: 'currency', currency: 'EUR' })}
+                        </p>
+                        <button 
+                          onClick={() => handleDelete(t.id)}
+                          className="p-2 text-tertiary opacity-0 group-hover:opacity-100 transition-opacity"
+                        >
+                          <Trash2 className="w-4 h-4" />
+                        </button>
+                      </div>
                     </div>
                   ))
                 )}
@@ -482,7 +396,7 @@ export default function App() {
                   <h2 className="text-2xl">Consultor AI</h2>
                 </div>
                 <p className="text-on-primary/80">
-                  Obtenha insights inteligentes baseados nos seus padrões de consumo.
+                  Obtenha insights inteligentes baseados nos seus padrões de consumo. (Requer Internet)
                 </p>
                 <Button 
                   onClick={getAiAdvice} 
@@ -559,8 +473,10 @@ export default function App() {
               </div>
               
               <AddTransactionForm 
-                userId={user.uid} 
-                onSuccess={() => setShowAddModal(false)} 
+                onSuccess={() => {
+                  setShowAddModal(false);
+                  refreshData();
+                }} 
               />
             </motion.div>
           </motion.div>
@@ -585,34 +501,27 @@ function NavButton({ active, onClick, icon, label }: { active: boolean, onClick:
   );
 }
 
-function AddTransactionForm({ userId, onSuccess }: { userId: string, onSuccess: () => void }) {
+function AddTransactionForm({ onSuccess }: { onSuccess: () => void }) {
   const [type, setType] = useState<'income' | 'expense'>('expense');
   const [amount, setAmount] = useState('');
   const [category, setCategory] = useState('');
   const [description, setDescription] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
 
-  const handleSubmit = async (e: React.FormEvent) => {
+  const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     if (!amount || !category) return;
     
     setIsSubmitting(true);
-    try {
-      await addDoc(collection(db, `users/${userId}/transactions`), {
-        userId,
-        amount: parseFloat(amount),
-        type,
-        category,
-        description,
-        date: Timestamp.now(),
-        createdAt: serverTimestamp()
-      });
-      onSuccess();
-    } catch (err) {
-      console.error(err);
-    } finally {
-      setIsSubmitting(false);
-    }
+    storageService.addTransaction({
+      amount: parseFloat(amount),
+      type,
+      category,
+      description,
+      date: new Date().toISOString()
+    });
+    setIsSubmitting(false);
+    onSuccess();
   };
 
   return (

@@ -1,20 +1,41 @@
-<div align="center">
-<img width="1200" height="475" alt="GHBanner" src="https://github.com/user-attachments/assets/0aa67016-6eaf-458a-adb2-6e31a0763ed6" />
-</div>
+# Atelier Financeiro 💎
 
-# Run and deploy your AI Studio app
+Uma aplicação de gestão financeira pessoal sofisticada, com design editorial e foco em privacidade. Esta aplicação foi desenvolvida para funcionar de forma totalmente **offline** e **embedded**, sendo ideal para conversão em APK Android.
 
-This contains everything you need to run your app locally.
+## ✨ Funcionalidades
+- **Gestão de Transações**: Registo de rendimentos e despesas com categorias personalizadas.
+- **Dashboard Visual**: Gráficos de atividade semanal e distribuição de gastos por categoria.
+- **Consultor AI**: Insights financeiros inteligentes utilizando o modelo Google Gemini.
+- **Privacidade Total**: Todos os dados são armazenados localmente no dispositivo (LocalStorage).
+- **Design Premium**: Interface baseada em princípios editoriais, com tipografia refinada e modo offline nativo.
 
-View your app in AI Studio: https://ai.studio/apps/5f021bf2-c91c-4b11-9ac1-8b9be35ecc04
+## 📱 Como gerar o APK (Android)
+Este projeto utiliza o **Capacitor** para converter a Web App num binário nativo.
 
-## Run Locally
+1. **Instalar dependências**:
+   ```bash
+   npm install
+   ```
+2. **Gerar a Build de Produção**:
+   ```bash
+   npm run build
+   ```
+3. **Sincronizar com Android**:
+   ```bash
+   npx cap add android
+   npx cap sync android
+   ```
+4. **Gerar APK no Android Studio**:
+   - Abra o projeto: `npx cap open android`
+   - No Android Studio, vá a: **Build > Build APK(s) > Build APK(s)**.
 
-**Prerequisites:**  Node.js
+## 🛠️ Tecnologias Utilizadas
+- **React 19** + **Vite**
+- **Tailwind CSS 4**
+- **Capacitor** (para suporte nativo Android)
+- **Recharts** (para visualização de dados)
+- **Motion** (para animações fluidas)
+- **Google Gemini API** (para o consultor financeiro)
 
-
-1. Install dependencies:
-   `npm install`
-2. Set the `GEMINI_API_KEY` in [.env.local](.env.local) to your Gemini API key
-3. Run the app:
-   `npm run dev`
+## 📄 Licença
+Este projeto está sob a licença Apache-2.0.
