@@ -16,7 +16,15 @@ import {
   Wallet,
   X,
   Loader2,
-  Trash2
+  Trash2,
+  Menu,
+  Info,
+  Settings,
+  Edit2,
+  PieChart as PieChartIcon,
+  List,
+  ChevronRight,
+  PlusCircle
 } from 'lucide-react';
 import { 
   AreaChart, 
@@ -35,21 +43,11 @@ import { pt } from 'date-fns/locale';
 import { motion, AnimatePresence } from 'motion/react';
 import { GoogleGenAI } from "@google/genai";
 import { cn } from './lib/utils';
-import { storageService } from './services/storage';
-
-// --- Types ---
-
-interface Transaction {
-  id: string;
-  amount: number;
-  type: 'income' | 'expense';
-  category: string;
-  description: string;
-  date: string;
-  createdAt: string;
-}
+import { storageService, Category, Transaction } from './services/storage';
 
 // --- Constants ---
+
+const LOGO_URL = 'https://calculorotina.com/wp-content/uploads/2023/03/logo-calculo-rotina.png';
 
 const CATEGORIES = {
   income: ['Salário', 'Investimentos', 'Presente', 'Venda', 'Outros'],
@@ -116,9 +114,16 @@ const Card = ({ children, className }: { children: React.ReactNode, className?: 
 export default function App() {
   const [loading, setLoading] = useState(true);
   const [transactions, setTransactions] = useState<Transaction[]>([]);
+  const [categories, setCategories] = useState<Category[]>([]);
   const [userProfile, setUserProfile] = useState({ displayName: 'Utilizador', currency: 'EUR' });
   const [activeTab, setActiveTab] = useState<'dashboard' | 'history' | 'ai'>('dashboard');
+  const [historyView, setHistoryView] = useState<'list' | 'category'>('list');
   const [showAddModal, setShowAddModal] = useState(false);
+  const [editingTransaction, setEditingTransaction] = useState<Transaction | null>(null);
+  const [showMenu, setShowMenu] = useState(false);
+  const [showAbout, setShowAbout] = useState(false);
+  const [showFeatures, setShowFeatures] = useState(false);
+  const [showCategoryManager, setShowCategoryManager] = useState(false);
   const [aiAdvice, setAiAdvice] = useState<string>('');
   const [isAiLoading, setIsAiLoading] = useState(false);
 
@@ -126,6 +131,7 @@ export default function App() {
   useEffect(() => {
     const data = storageService.getData();
     setTransactions(data.transactions);
+    setCategories(data.categories);
     setUserProfile(data.userProfile);
     setLoading(false);
   }, []);
@@ -133,6 +139,7 @@ export default function App() {
   const refreshData = () => {
     const data = storageService.getData();
     setTransactions(data.transactions);
+    setCategories(data.categories);
   };
 
   const handleDelete = (id: string) => {
@@ -140,6 +147,11 @@ export default function App() {
       storageService.deleteTransaction(id);
       refreshData();
     }
+  };
+
+  const handleEdit = (transaction: Transaction) => {
+    setEditingTransaction(transaction);
+    setShowAddModal(true);
   };
 
   // Calculations
@@ -222,18 +234,97 @@ export default function App() {
       {/* Header */}
       <header className="p-6 flex items-center justify-between">
         <div className="flex items-center gap-3">
+          <button onClick={() => setShowMenu(true)} className="p-2 -ml-2 rounded-full hover:bg-surface-container-highest">
+            <Menu className="w-6 h-6" />
+          </button>
+          <img 
+            src={LOGO_URL} 
+            alt="Calculo Rotina" 
+            className="h-8 object-contain"
+            referrerPolicy="no-referrer"
+            onError={(e) => {
+              // Fallback if logo fails to load
+              (e.target as HTMLImageElement).src = 'https://picsum.photos/seed/finance/100/100';
+            }}
+          />
+        </div>
+        <div className="flex items-center gap-2">
+          <div className="text-right hidden sm:block">
+            <p className="text-[10px] text-on-surface-variant uppercase tracking-widest">Atelier</p>
+            <p className="text-sm font-bold">{userProfile.displayName}</p>
+          </div>
           <div className="w-10 h-10 rounded-full bg-primary-container flex items-center justify-center text-on-primary">
             <UserIcon className="w-6 h-6" />
           </div>
-          <div>
-            <p className="text-xs text-on-surface-variant">Bem-vindo,</p>
-            <p className="font-semibold">{userProfile.displayName}</p>
-          </div>
-        </div>
-        <div className="text-[10px] bg-secondary-container text-secondary px-2 py-1 rounded-full font-bold uppercase tracking-tighter">
-          Modo Offline
         </div>
       </header>
+
+      {/* Side Menu Drawer */}
+      <AnimatePresence>
+        {showMenu && (
+          <>
+            <motion.div 
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              onClick={() => setShowMenu(false)}
+              className="fixed inset-0 bg-black/40 backdrop-blur-sm z-[100]"
+            />
+            <motion.div 
+              initial={{ x: '-100%' }}
+              animate={{ x: 0 }}
+              exit={{ x: '-100%' }}
+              className="fixed top-0 left-0 bottom-0 w-72 bg-surface z-[101] shadow-2xl p-6 flex flex-col"
+            >
+              <div className="flex items-center justify-between mb-12">
+                <img src={LOGO_URL} alt="Logo" className="h-8" referrerPolicy="no-referrer" />
+                <button onClick={() => setShowMenu(false)} className="p-2">
+                  <X className="w-6 h-6" />
+                </button>
+              </div>
+
+              <nav className="flex-1 space-y-2">
+                <MenuOption 
+                  icon={<LayoutDashboard />} 
+                  label="Dashboard" 
+                  active={activeTab === 'dashboard'}
+                  onClick={() => { setActiveTab('dashboard'); setShowMenu(false); }} 
+                />
+                <MenuOption 
+                  icon={<History />} 
+                  label="Histórico" 
+                  active={activeTab === 'history'}
+                  onClick={() => { setActiveTab('history'); setShowMenu(false); }} 
+                />
+                <MenuOption 
+                  icon={<Settings />} 
+                  label="Categorias" 
+                  onClick={() => { setShowCategoryManager(true); setShowMenu(false); }} 
+                />
+                <hr className="my-4 border-outline-variant/30" />
+                <MenuOption 
+                  icon={<Info />} 
+                  label="Sobre" 
+                  onClick={() => { setShowAbout(true); setShowMenu(false); }} 
+                />
+                <MenuOption 
+                  icon={<Sparkles />} 
+                  label="Funcionalidades" 
+                  onClick={() => { setShowFeatures(true); setShowMenu(false); }} 
+                />
+              </nav>
+
+              <button 
+                onClick={() => { if(window.confirm("Deseja sair da aplicação?")) window.close(); }}
+                className="flex items-center gap-4 p-4 text-tertiary hover:bg-tertiary-container/20 rounded-xl transition-colors mt-auto"
+              >
+                <LogOut className="w-5 h-5" />
+                <span className="font-bold">Sair</span>
+              </button>
+            </motion.div>
+          </>
+        )}
+      </AnimatePresence>
 
       <main className="px-6 space-y-8">
         <AnimatePresence mode="wait">
@@ -339,46 +430,104 @@ export default function App() {
               exit={{ opacity: 0, x: 20 }}
               className="space-y-6"
             >
-              <h2 className="text-2xl">Histórico</h2>
-              <div className="space-y-4">
-                {transactions.length === 0 ? (
-                  <p className="text-center text-on-surface-variant py-12">Nenhuma transação encontrada.</p>
-                ) : (
-                  transactions.map((t) => (
-                    <div key={t.id} className="group flex items-center justify-between p-4 bg-surface-container-low rounded-xl">
-                      <div className="flex items-center gap-4">
-                        <div className={cn(
-                          "w-12 h-12 rounded-full flex items-center justify-center",
-                          t.type === 'income' ? "bg-secondary-container text-secondary" : "bg-tertiary-container text-tertiary"
-                        )}>
-                          {t.type === 'income' ? <TrendingUp className="w-6 h-6" /> : <TrendingDown className="w-6 h-6" />}
-                        </div>
-                        <div>
-                          <p className="font-semibold">{t.category}</p>
-                          <p className="text-xs text-on-surface-variant">{t.description || 'Sem descrição'}</p>
-                          <p className="text-[10px] text-on-surface-variant/70 uppercase tracking-tighter">
-                            {format(parseISO(t.date), "d 'de' MMMM", { locale: pt })}
-                          </p>
-                        </div>
-                      </div>
-                      <div className="flex items-center gap-4">
-                        <p className={cn(
-                          "font-display font-bold text-lg",
-                          t.type === 'income' ? "text-secondary" : "text-tertiary"
-                        )}>
-                          {t.type === 'income' ? '+' : '-'}{t.amount.toLocaleString('pt-PT', { style: 'currency', currency: 'EUR' })}
-                        </p>
-                        <button 
-                          onClick={() => handleDelete(t.id)}
-                          className="p-2 text-tertiary opacity-0 group-hover:opacity-100 transition-opacity"
-                        >
-                          <Trash2 className="w-4 h-4" />
-                        </button>
-                      </div>
-                    </div>
-                  ))
-                )}
+              <div className="flex items-center justify-between">
+                <h2 className="text-2xl">Histórico</h2>
+                <div className="flex bg-surface-container-low p-1 rounded-lg">
+                  <button 
+                    onClick={() => setHistoryView('list')}
+                    className={cn("p-2 rounded-md transition-all", historyView === 'list' ? "bg-surface shadow-sm text-primary" : "text-on-surface-variant")}
+                  >
+                    <List className="w-4 h-4" />
+                  </button>
+                  <button 
+                    onClick={() => setHistoryView('category')}
+                    className={cn("p-2 rounded-md transition-all", historyView === 'category' ? "bg-surface shadow-sm text-primary" : "text-on-surface-variant")}
+                  >
+                    <PieChartIcon className="w-4 h-4" />
+                  </button>
+                </div>
               </div>
+
+              {historyView === 'list' ? (
+                <div className="space-y-4">
+                  {transactions.length === 0 ? (
+                    <p className="text-center text-on-surface-variant py-12">Nenhuma transação encontrada.</p>
+                  ) : (
+                    transactions.map((t) => (
+                      <div key={t.id} className="group flex items-center justify-between p-4 bg-surface-container-low rounded-xl hover:bg-surface-container-highest transition-colors">
+                        <div className="flex items-center gap-4">
+                          <div className={cn(
+                            "w-12 h-12 rounded-full flex items-center justify-center",
+                            t.type === 'income' ? "bg-secondary-container text-secondary" : "bg-tertiary-container text-tertiary"
+                          )}>
+                            {t.type === 'income' ? <TrendingUp className="w-6 h-6" /> : <TrendingDown className="w-6 h-6" />}
+                          </div>
+                          <div>
+                            <p className="font-semibold">{t.category}</p>
+                            <p className="text-xs text-on-surface-variant">{t.description || 'Sem descrição'}</p>
+                            <p className="text-[10px] text-on-surface-variant/70 uppercase tracking-tighter">
+                              {format(parseISO(t.date), "d 'de' MMMM", { locale: pt })}
+                            </p>
+                          </div>
+                        </div>
+                        <div className="flex items-center gap-4">
+                          <p className={cn(
+                            "font-display font-bold text-lg",
+                            t.type === 'income' ? "text-secondary" : "text-tertiary"
+                          )}>
+                            {t.type === 'income' ? '+' : '-'}{t.amount.toLocaleString('pt-PT', { style: 'currency', currency: 'EUR' })}
+                          </p>
+                          <div className="flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                            <button 
+                              onClick={() => handleEdit(t)}
+                              className="p-2 text-primary hover:bg-primary/10 rounded-full"
+                            >
+                              <Edit2 className="w-4 h-4" />
+                            </button>
+                            <button 
+                              onClick={() => handleDelete(t.id)}
+                              className="p-2 text-tertiary hover:bg-tertiary/10 rounded-full"
+                            >
+                              <Trash2 className="w-4 h-4" />
+                            </button>
+                          </div>
+                        </div>
+                      </div>
+                    ))
+                  )}
+                </div>
+              ) : (
+                <div className="space-y-8">
+                  {['income', 'expense'].map((type) => {
+                    const filtered = transactions.filter(t => t.type === type);
+                    const byCat = filtered.reduce((acc, t) => {
+                      acc[t.category] = (acc[t.category] || 0) + t.amount;
+                      return acc;
+                    }, {} as Record<string, number>);
+
+                    return Object.keys(byCat).length > 0 && (
+                      <div key={type} className="space-y-4">
+                        <h3 className={cn("text-sm font-bold uppercase tracking-widest", type === 'income' ? "text-secondary" : "text-tertiary")}>
+                          {type === 'income' ? 'Rendimentos por Categoria' : 'Despesas por Categoria'}
+                        </h3>
+                        <div className="space-y-3">
+                          {Object.entries(byCat).map(([cat, val]) => (
+                            <div key={cat} className="p-4 bg-surface-container-low rounded-xl flex justify-between items-center">
+                              <div className="flex items-center gap-3">
+                                <div className="w-2 h-8 rounded-full" style={{ backgroundColor: categories.find(c => c.name === cat)?.color || '#ccc' }} />
+                                <span className="font-medium">{cat}</span>
+                              </div>
+                              <span className="font-display font-bold">
+                                {val.toLocaleString('pt-PT', { style: 'currency', currency: 'EUR' })}
+                              </span>
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              )}
             </motion.div>
           )}
 
@@ -466,15 +615,18 @@ export default function App() {
               className="bg-surface w-full max-w-lg rounded-t-3xl sm:rounded-3xl p-8 space-y-6 shadow-2xl"
             >
               <div className="flex items-center justify-between">
-                <h2 className="text-2xl">Nova Transação</h2>
-                <button onClick={() => setShowAddModal(false)} className="p-2">
+                <h2 className="text-2xl">{editingTransaction ? 'Editar Transação' : 'Nova Transação'}</h2>
+                <button onClick={() => { setShowAddModal(false); setEditingTransaction(null); }} className="p-2">
                   <X className="w-6 h-6" />
                 </button>
               </div>
               
               <AddTransactionForm 
+                editingTransaction={editingTransaction}
+                categories={categories}
                 onSuccess={() => {
                   setShowAddModal(false);
+                  setEditingTransaction(null);
                   refreshData();
                 }} 
               />
@@ -482,6 +634,151 @@ export default function App() {
           </motion.div>
         )}
       </AnimatePresence>
+
+      {/* Category Manager Modal */}
+      <Modal show={showCategoryManager} onClose={() => setShowCategoryManager(false)} title="Gerir Categorias">
+        <CategoryManager categories={categories} onUpdate={refreshData} />
+      </Modal>
+
+      {/* About Modal */}
+      <Modal show={showAbout} onClose={() => setShowAbout(false)} title="Sobre o Atelier">
+        <div className="space-y-4 text-on-surface-variant leading-relaxed">
+          <p>O <strong>Atelier Financeiro</strong> é uma ferramenta de gestão pessoal desenhada para trazer clareza e elegância às suas finanças.</p>
+          <p>Inspirado na precisão de um atelier, cada detalhe foi pensado para que a sua jornada financeira seja tratada com o cuidado que merece.</p>
+          <div className="pt-4 border-t border-outline-variant/30">
+            <p className="text-xs">Versão 2.0.0 (Embedded)</p>
+            <p className="text-xs">Desenvolvido para calculorotina.com</p>
+          </div>
+        </div>
+      </Modal>
+
+      {/* Features Modal */}
+      <Modal show={showFeatures} onClose={() => setShowFeatures(false)} title="Funcionalidades">
+        <div className="space-y-6">
+          <FeatureItem icon={<Wallet />} title="Gestão Offline" desc="Os seus dados nunca saem do seu dispositivo." />
+          <FeatureItem icon={<Settings />} title="Categorias Dinâmicas" desc="Crie e edite as suas próprias categorias de gastos." />
+          <FeatureItem icon={<PieChart />} title="Análise Visual" desc="Gráficos intuitivos para entender onde gasta o seu dinheiro." />
+          <FeatureItem icon={<Sparkles />} title="Consultor AI" desc="Inteligência Artificial para dar conselhos personalizados." />
+        </div>
+      </Modal>
+    </div>
+  );
+}
+
+function Modal({ show, onClose, title, children }: { show: boolean, onClose: () => void, title: string, children: React.ReactNode }) {
+  return (
+    <AnimatePresence>
+      {show && (
+        <motion.div 
+          initial={{ opacity: 0 }}
+          animate={{ opacity: 1 }}
+          exit={{ opacity: 0 }}
+          className="fixed inset-0 bg-black/40 backdrop-blur-sm z-[150] flex items-center justify-center p-6"
+        >
+          <motion.div 
+            initial={{ scale: 0.9, opacity: 0 }}
+            animate={{ scale: 1, opacity: 1 }}
+            exit={{ scale: 0.9, opacity: 0 }}
+            className="bg-surface w-full max-w-md rounded-3xl p-8 shadow-2xl space-y-6"
+          >
+            <div className="flex items-center justify-between">
+              <h2 className="text-2xl">{title}</h2>
+              <button onClick={onClose} className="p-2">
+                <X className="w-6 h-6" />
+              </button>
+            </div>
+            {children}
+          </motion.div>
+        </motion.div>
+      )}
+    </AnimatePresence>
+  );
+}
+
+function FeatureItem({ icon, title, desc }: { icon: React.ReactNode, title: string, desc: string }) {
+  return (
+    <div className="flex gap-4">
+      <div className="w-10 h-10 rounded-xl bg-primary-container flex items-center justify-center text-on-primary shrink-0">
+        {icon}
+      </div>
+      <div>
+        <p className="font-bold">{title}</p>
+        <p className="text-sm text-on-surface-variant">{desc}</p>
+      </div>
+    </div>
+  );
+}
+
+function MenuOption({ icon, label, active, onClick }: { icon: React.ReactNode, label: string, active?: boolean, onClick: () => void }) {
+  return (
+    <button 
+      onClick={onClick}
+      className={cn(
+        "w-full flex items-center gap-4 p-4 rounded-xl transition-all",
+        active ? "bg-primary text-on-primary shadow-lg" : "text-on-surface-variant hover:bg-surface-container-highest"
+      )}
+    >
+      {React.isValidElement(icon) ? React.cloneElement(icon as React.ReactElement<any>, { className: "w-5 h-5" }) : icon}
+      <span className="font-semibold">{label}</span>
+      {active && <ChevronRight className="w-4 h-4 ml-auto" />}
+    </button>
+  );
+}
+
+function CategoryManager({ categories, onUpdate }: { categories: Category[], onUpdate: () => void }) {
+  const [newCatName, setNewCatName] = useState('');
+  const [newCatType, setNewCatType] = useState<'income' | 'expense'>('expense');
+
+  const handleAdd = () => {
+    if (!newCatName) return;
+    storageService.addCategory({ name: newCatName, type: newCatType, color: '#' + Math.floor(Math.random()*16777215).toString(16) });
+    setNewCatName('');
+    onUpdate();
+  };
+
+  const handleDelete = (id: string) => {
+    if (window.confirm("Deseja eliminar esta categoria?")) {
+      storageService.deleteCategory(id);
+      onUpdate();
+    }
+  };
+
+  return (
+    <div className="space-y-6">
+      <div className="flex gap-2">
+        <input 
+          value={newCatName}
+          onChange={(e) => setNewCatName(e.target.value)}
+          placeholder="Nova categoria..."
+          className="flex-1 bg-surface-container-low rounded-xl px-4 py-2 outline-none"
+        />
+        <select 
+          value={newCatType}
+          onChange={(e) => setNewCatType(e.target.value as any)}
+          className="bg-surface-container-low rounded-xl px-2 outline-none text-xs font-bold"
+        >
+          <option value="expense">Despesa</option>
+          <option value="income">Receita</option>
+        </select>
+        <button onClick={handleAdd} className="p-2 bg-primary text-on-primary rounded-xl">
+          <PlusCircle className="w-6 h-6" />
+        </button>
+      </div>
+
+      <div className="max-h-64 overflow-y-auto space-y-2 pr-2">
+        {categories.map(cat => (
+          <div key={cat.id} className="flex items-center justify-between p-3 bg-surface-container-low rounded-xl">
+            <div className="flex items-center gap-3">
+              <div className="w-3 h-3 rounded-full" style={{ backgroundColor: cat.color }} />
+              <span className="text-sm font-medium">{cat.name}</span>
+              <span className="text-[10px] uppercase font-bold opacity-50">{cat.type === 'income' ? 'Rec' : 'Des'}</span>
+            </div>
+            <button onClick={() => handleDelete(cat.id)} className="text-tertiary">
+              <Trash2 className="w-4 h-4" />
+            </button>
+          </div>
+        ))}
+      </div>
     </div>
   );
 }
@@ -501,35 +798,55 @@ function NavButton({ active, onClick, icon, label }: { active: boolean, onClick:
   );
 }
 
-function AddTransactionForm({ onSuccess }: { onSuccess: () => void }) {
+function AddTransactionForm({ editingTransaction, categories, onSuccess }: { editingTransaction?: Transaction | null, categories: Category[], onSuccess: () => void }) {
   const [type, setType] = useState<'income' | 'expense'>('expense');
   const [amount, setAmount] = useState('');
   const [category, setCategory] = useState('');
   const [description, setDescription] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
 
+  useEffect(() => {
+    if (editingTransaction) {
+      setType(editingTransaction.type);
+      setAmount(editingTransaction.amount.toString());
+      setCategory(editingTransaction.category);
+      setDescription(editingTransaction.description);
+    }
+  }, [editingTransaction]);
+
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     if (!amount || !category) return;
     
     setIsSubmitting(true);
-    storageService.addTransaction({
-      amount: parseFloat(amount),
-      type,
-      category,
-      description,
-      date: new Date().toISOString()
-    });
+    if (editingTransaction) {
+      storageService.updateTransaction(editingTransaction.id, {
+        amount: parseFloat(amount),
+        type,
+        category,
+        description
+      });
+    } else {
+      storageService.addTransaction({
+        amount: parseFloat(amount),
+        type,
+        category,
+        description,
+        date: new Date().toISOString()
+      });
+    }
     setIsSubmitting(false);
     onSuccess();
   };
+
+  const filteredCategories = categories.filter(c => c.type === type);
 
   return (
     <form onSubmit={handleSubmit} className="space-y-6">
       <div className="flex p-1 bg-surface-container-low rounded-xl">
         <button 
           type="button"
-          onClick={() => setType('expense')}
+          onClick={() => { setType('expense'); setCategory(''); }}
           className={cn(
             "flex-1 py-2 rounded-lg text-sm font-bold transition-all",
             type === 'expense' ? "bg-tertiary text-on-tertiary shadow-lg" : "text-on-surface-variant"
@@ -539,7 +856,7 @@ function AddTransactionForm({ onSuccess }: { onSuccess: () => void }) {
         </button>
         <button 
           type="button"
-          onClick={() => setType('income')}
+          onClick={() => { setType('income'); setCategory(''); }}
           className={cn(
             "flex-1 py-2 rounded-lg text-sm font-bold transition-all",
             type === 'income' ? "bg-secondary text-on-secondary shadow-lg" : "text-on-surface-variant"
@@ -565,21 +882,22 @@ function AddTransactionForm({ onSuccess }: { onSuccess: () => void }) {
       <div className="space-y-2">
         <label className="text-xs font-bold text-on-surface-variant uppercase tracking-widest">Categoria</label>
         <div className="flex flex-wrap gap-2">
-          {CATEGORIES[type].map(cat => (
+          {filteredCategories.map(cat => (
             <button
-              key={cat}
+              key={cat.id}
               type="button"
-              onClick={() => setCategory(cat)}
+              onClick={() => setCategory(cat.name)}
               className={cn(
                 "px-4 py-2 rounded-full text-sm font-medium transition-all",
-                category === cat 
+                category === cat.name 
                   ? "bg-primary text-on-primary shadow-md" 
                   : "bg-surface-container-low text-on-surface-variant hover:bg-surface-container-highest"
               )}
             >
-              {cat}
+              {cat.name}
             </button>
           ))}
+          {filteredCategories.length === 0 && <p className="text-xs text-on-surface-variant">Crie categorias no menu lateral.</p>}
         </div>
       </div>
 
@@ -595,7 +913,7 @@ function AddTransactionForm({ onSuccess }: { onSuccess: () => void }) {
       </div>
 
       <Button type="submit" className="w-full py-4" disabled={isSubmitting}>
-        {isSubmitting ? <Loader2 className="w-6 h-6 animate-spin" /> : 'Guardar Transação'}
+        {isSubmitting ? <Loader2 className="w-6 h-6 animate-spin" /> : (editingTransaction ? 'Atualizar' : 'Guardar')}
       </Button>
     </form>
   );

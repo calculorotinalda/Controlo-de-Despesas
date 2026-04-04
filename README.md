@@ -4,10 +4,13 @@ Uma aplicação de gestão financeira pessoal sofisticada, com design editorial 
 
 ## ✨ Funcionalidades
 - **Gestão de Transações**: Registo de rendimentos e despesas com categorias personalizadas.
+- **CRUD Completo**: Possibilidade de editar e eliminar transações e categorias.
+- **Categorias Dinâmicas**: Crie e gira as suas próprias categorias de receitas e despesas.
 - **Dashboard Visual**: Gráficos de atividade semanal e distribuição de gastos por categoria.
+- **Histórico Inteligente**: Vista cronológica ou agrupada por categoria para melhor análise.
 - **Consultor AI**: Insights financeiros inteligentes utilizando o modelo Google Gemini.
 - **Privacidade Total**: Todos os dados são armazenados localmente no dispositivo (LocalStorage).
-- **Design Premium**: Interface baseada em princípios editoriais, com tipografia refinada e modo offline nativo.
+- **Design Premium**: Interface baseada em princípios editoriais, com logótipo oficial e menu lateral intuitivo.
 
 ## 📱 Como gerar o APK (Android)
 Este projeto utiliza o **Capacitor** para converter a Web App num binário nativo.
