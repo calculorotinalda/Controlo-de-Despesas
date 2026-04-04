@@ -640,7 +640,7 @@ export default function App() {
               initial={{ y: '100%' }}
               animate={{ y: 0 }}
               exit={{ y: '100%' }}
-              className="bg-surface w-full max-w-lg rounded-t-3xl sm:rounded-3xl p-8 space-y-6 shadow-2xl"
+              className="bg-surface w-full max-w-lg rounded-t-3xl sm:rounded-3xl p-6 sm:p-8 space-y-4 sm:space-y-6 shadow-2xl"
             >
               <div className="flex justify-center py-2">
                 <img src={LOGO_URL} alt="Logo" className="w-12 h-12 object-contain" referrerPolicy="no-referrer" />
@@ -719,7 +719,7 @@ function Modal({ show, onClose, title, children }: { show: boolean, onClose: () 
             initial={{ scale: 0.9, opacity: 0 }}
             animate={{ scale: 1, opacity: 1 }}
             exit={{ scale: 0.9, opacity: 0 }}
-            className="bg-surface w-full max-w-md rounded-3xl p-8 shadow-2xl space-y-6"
+            className="bg-surface w-full max-w-md rounded-3xl p-6 sm:p-8 shadow-2xl space-y-6"
           >
             <div className="flex items-center justify-between">
               <h2 className="text-2xl">{title}</h2>
@@ -785,24 +785,26 @@ function CategoryManager({ categories, onUpdate }: { categories: Category[], onU
 
   return (
     <div className="space-y-6">
-      <div className="flex gap-2">
+      <div className="flex flex-col gap-3 sm:flex-row sm:gap-2">
         <input 
           value={newCatName}
           onChange={(e) => setNewCatName(e.target.value)}
           placeholder="Nova categoria..."
-          className="flex-1 bg-surface-container-low rounded-xl px-4 py-2 outline-none"
+          className="w-full sm:flex-1 bg-surface-container-low rounded-xl px-4 py-3 sm:py-2 outline-none"
         />
-        <select 
-          value={newCatType}
-          onChange={(e) => setNewCatType(e.target.value as any)}
-          className="bg-surface-container-low rounded-xl px-2 outline-none text-xs font-bold"
-        >
-          <option value="expense">Despesa</option>
-          <option value="income">Receita</option>
-        </select>
-        <button onClick={handleAdd} className="p-2 bg-primary text-on-primary rounded-xl">
-          <PlusCircle className="w-6 h-6" />
-        </button>
+        <div className="flex gap-2">
+          <select 
+            value={newCatType}
+            onChange={(e) => setNewCatType(e.target.value as any)}
+            className="flex-1 sm:w-auto bg-surface-container-low rounded-xl px-4 sm:px-2 outline-none text-xs font-bold h-12 sm:h-auto"
+          >
+            <option value="expense">Despesa</option>
+            <option value="income">Receita</option>
+          </select>
+          <button onClick={handleAdd} className="p-3 sm:p-2 bg-primary text-on-primary rounded-xl flex items-center justify-center">
+            <PlusCircle className="w-6 h-6" />
+          </button>
+        </div>
       </div>
 
       <div className="max-h-64 overflow-y-auto space-y-2 pr-2">
