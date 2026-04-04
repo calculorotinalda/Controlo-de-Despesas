@@ -47,7 +47,7 @@ import { storageService, Category, Transaction } from './services/storage';
 
 // --- Constants ---
 
-const LOGO_URL = 'https://calculorotina.com/wp-content/uploads/2023/03/logo-calculo-rotina.png';
+const LOGO_URL = 'https://img.icons8.com/fluency/512/sales-performance.png';
 
 const CATEGORIES = {
   income: ['Salário', 'Investimentos', 'Presente', 'Venda', 'Outros'],
@@ -127,6 +127,8 @@ export default function App() {
   const [aiAdvice, setAiAdvice] = useState<string>('');
   const [isAiLoading, setIsAiLoading] = useState(false);
 
+  const [showSplash, setShowSplash] = useState(true);
+
   // Load Data from Local Storage
   useEffect(() => {
     const data = storageService.getData();
@@ -134,6 +136,11 @@ export default function App() {
     setCategories(data.categories);
     setUserProfile(data.userProfile);
     setLoading(false);
+    
+    const timer = setTimeout(() => {
+      setShowSplash(false);
+    }, 2000);
+    return () => clearTimeout(timer);
   }, []);
 
   const refreshData = () => {
@@ -221,10 +228,23 @@ export default function App() {
     }
   };
 
-  if (loading) {
+  if (loading || showSplash) {
     return (
-      <div className="h-screen flex items-center justify-center bg-surface">
-        <Loader2 className="w-8 h-8 animate-spin text-primary" />
+      <div className="h-screen flex flex-col items-center justify-center bg-surface gap-6">
+        <motion.div
+          initial={{ scale: 0.8, opacity: 0 }}
+          animate={{ scale: 1, opacity: 1 }}
+          transition={{ duration: 0.5 }}
+          className="flex flex-col items-center gap-4"
+        >
+          <img 
+            src={LOGO_URL} 
+            alt="Logo" 
+            className="w-32 h-32 object-contain"
+            referrerPolicy="no-referrer"
+          />
+        </motion.div>
+        <Loader2 className="w-8 h-8 animate-spin text-primary/30 mt-8" />
       </div>
     );
   }
@@ -239,18 +259,13 @@ export default function App() {
           </button>
           <img 
             src={LOGO_URL} 
-            alt="Calculo Rotina" 
-            className="h-8 object-contain"
+            alt="Atelier Financeiro" 
+            className="h-10 sm:h-12 w-auto object-contain"
             referrerPolicy="no-referrer"
-            onError={(e) => {
-              // Fallback if logo fails to load
-              (e.target as HTMLImageElement).src = 'https://picsum.photos/seed/finance/100/100';
-            }}
           />
         </div>
         <div className="flex items-center gap-2">
           <div className="text-right hidden sm:block">
-            <p className="text-[10px] text-on-surface-variant uppercase tracking-widest">Atelier</p>
             <p className="text-sm font-bold">{userProfile.displayName}</p>
           </div>
           <div className="w-10 h-10 rounded-full bg-primary-container flex items-center justify-center text-on-primary">
@@ -277,7 +292,9 @@ export default function App() {
               className="fixed top-0 left-0 bottom-0 w-72 bg-surface z-[101] shadow-2xl p-6 flex flex-col"
             >
               <div className="flex items-center justify-between mb-12">
-                <img src={LOGO_URL} alt="Logo" className="h-8" referrerPolicy="no-referrer" />
+                <div className="flex items-center gap-3">
+                  <img src={LOGO_URL} alt="Logo" className="h-12 w-12 object-contain" referrerPolicy="no-referrer" />
+                </div>
                 <button onClick={() => setShowMenu(false)} className="p-2">
                   <X className="w-6 h-6" />
                 </button>
@@ -334,8 +351,13 @@ export default function App() {
               initial={{ opacity: 0, x: -20 }}
               animate={{ opacity: 1, x: 0 }}
               exit={{ opacity: 0, x: 20 }}
-              className="space-y-8"
+              className="space-y-8 relative"
             >
+              {/* Background Logo */}
+              <div className="fixed inset-0 -z-10 opacity-[0.03] pointer-events-none flex items-center justify-center overflow-hidden">
+                <img src={LOGO_URL} className="w-[120%] h-auto max-w-none grayscale" alt="" />
+              </div>
+
               {/* Balance Hero */}
               <div className={cn(
                 "balance-halo p-8 rounded-3xl text-center space-y-2",
@@ -430,6 +452,9 @@ export default function App() {
               exit={{ opacity: 0, x: 20 }}
               className="space-y-6"
             >
+              <div className="flex justify-center py-4">
+                <img src={LOGO_URL} alt="Logo" className="w-20 h-20 object-contain" referrerPolicy="no-referrer" />
+              </div>
               <div className="flex items-center justify-between">
                 <h2 className="text-2xl">Histórico</h2>
                 <div className="flex bg-surface-container-low p-1 rounded-lg">
@@ -539,6 +564,9 @@ export default function App() {
               exit={{ opacity: 0, x: 20 }}
               className="space-y-8"
             >
+              <div className="flex justify-center py-4">
+                <img src={LOGO_URL} alt="Logo" className="w-24 h-24 object-contain" referrerPolicy="no-referrer" />
+              </div>
               <div className="bg-primary p-8 rounded-3xl text-on-primary space-y-4">
                 <div className="flex items-center gap-3">
                   <Sparkles className="w-6 h-6" />
@@ -614,6 +642,9 @@ export default function App() {
               exit={{ y: '100%' }}
               className="bg-surface w-full max-w-lg rounded-t-3xl sm:rounded-3xl p-8 space-y-6 shadow-2xl"
             >
+              <div className="flex justify-center py-2">
+                <img src={LOGO_URL} alt="Logo" className="w-12 h-12 object-contain" referrerPolicy="no-referrer" />
+              </div>
               <div className="flex items-center justify-between">
                 <h2 className="text-2xl">{editingTransaction ? 'Editar Transação' : 'Nova Transação'}</h2>
                 <button onClick={() => { setShowAddModal(false); setEditingTransaction(null); }} className="p-2">
@@ -637,12 +668,18 @@ export default function App() {
 
       {/* Category Manager Modal */}
       <Modal show={showCategoryManager} onClose={() => setShowCategoryManager(false)} title="Gerir Categorias">
+        <div className="flex justify-center py-2 mb-4">
+          <img src={LOGO_URL} alt="Logo" className="w-16 h-16 object-contain" referrerPolicy="no-referrer" />
+        </div>
         <CategoryManager categories={categories} onUpdate={refreshData} />
       </Modal>
 
       {/* About Modal */}
       <Modal show={showAbout} onClose={() => setShowAbout(false)} title="Sobre o Atelier">
-        <div className="space-y-4 text-on-surface-variant leading-relaxed">
+        <div className="space-y-6 text-on-surface-variant leading-relaxed">
+          <div className="flex justify-center py-4">
+            <img src={LOGO_URL} alt="Logo" className="w-24 h-24 object-contain" referrerPolicy="no-referrer" />
+          </div>
           <p>O <strong>Atelier Financeiro</strong> é uma ferramenta de gestão pessoal desenhada para trazer clareza e elegância às suas finanças.</p>
           <p>Inspirado na precisão de um atelier, cada detalhe foi pensado para que a sua jornada financeira seja tratada com o cuidado que merece.</p>
           <div className="pt-4 border-t border-outline-variant/30">
@@ -655,6 +692,9 @@ export default function App() {
       {/* Features Modal */}
       <Modal show={showFeatures} onClose={() => setShowFeatures(false)} title="Funcionalidades">
         <div className="space-y-6">
+          <div className="flex justify-center py-4">
+            <img src={LOGO_URL} alt="Logo" className="w-20 h-20 object-contain" referrerPolicy="no-referrer" />
+          </div>
           <FeatureItem icon={<Wallet />} title="Gestão Offline" desc="Os seus dados nunca saem do seu dispositivo." />
           <FeatureItem icon={<Settings />} title="Categorias Dinâmicas" desc="Crie e edite as suas próprias categorias de gastos." />
           <FeatureItem icon={<PieChart />} title="Análise Visual" desc="Gráficos intuitivos para entender onde gasta o seu dinheiro." />
