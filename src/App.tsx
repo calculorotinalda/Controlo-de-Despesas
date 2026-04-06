@@ -42,6 +42,7 @@ import { format, parseISO } from 'date-fns';
 import { pt } from 'date-fns/locale';
 import { motion, AnimatePresence } from 'motion/react';
 import { GoogleGenAI } from "@google/genai";
+import Markdown from 'react-markdown';
 import { cn } from './lib/utils';
 import { storageService, Category, Transaction } from './services/storage';
 
@@ -204,25 +205,80 @@ export default function App() {
   }, [transactions]);
 
   const getAiAdvice = async () => {
-    if (transactions.length === 0) return;
+    if (transactions.length === 0) {
+      setAiAdvice('Adicione algumas transações primeiro para que eu possa analisar os seus hábitos financeiros.');
+      return;
+    }
+    
     setIsAiLoading(true);
+    setAiAdvice('');
+    
     try {
-      const ai = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY! });
-      const summary = transactions.slice(0, 20).map(t => 
-        `${t.type === 'income' ? '+' : '-'}${t.amount}€ em ${t.category} (${t.description})`
+      // Use the provided key as a fallback if environment variables are missing
+      const PROVIDED_KEY = "AIzaSyBumVDztYqo3B9S1jdcld-J5v8Z4_Loj58";
+      let apiKey = process.env.GEMINI_API_KEY || process.env.API_KEY;
+      
+      // If no environment key is found, use the provided one
+      if (!apiKey || apiKey === 'MY_GEMINI_API_KEY') {
+        apiKey = PROVIDED_KEY;
+      }
+
+      // Final check - if still no key, try to open the selection dialog
+      if (!apiKey && window.aistudio) {
+        const hasKey = await window.aistudio.hasSelectedApiKey();
+        if (!hasKey) {
+          await window.aistudio.openSelectKey();
+          apiKey = process.env.API_KEY;
+        }
+      }
+
+      if (!apiKey) {
+        throw new Error('API Key não configurada. Por favor, configure a sua API Key no menu lateral.');
+      }
+
+      // Warning for non-standard keys (Gemini keys usually start with AIza)
+      if (!apiKey.startsWith('AIza') && apiKey !== PROVIDED_KEY) {
+        console.warn('A chave API fornecida não parece ser uma chave padrão do Google Gemini (deve começar por AIza).');
+      }
+
+      const ai = new GoogleGenAI({ apiKey });
+      const summary = transactions.slice(0, 30).map(t => 
+        `${t.type === 'income' ? 'Receita' : 'Despesa'}: ${t.amount}€ | Categoria: ${t.category} | Descrição: ${t.description || 'N/A'} | Data: ${format(parseISO(t.date), 'dd/MM/yyyy')}`
       ).join('\n');
       
+      const prompt = `És um consultor financeiro de elite, sofisticado, empático e prático. 
+Analisa as minhas transações recentes e o meu saldo atual. 
+Dá-me 3 a 4 conselhos financeiros personalizados, curtos e acionáveis em Português de Portugal (PT-PT).
+Usa Markdown para formatar a resposta (usa negrito para pontos chave).
+
+Transações Recentes:
+${summary}
+
+Saldo Atual: ${stats.balance.toLocaleString('pt-PT', { style: 'currency', currency: 'EUR' })}
+
+Estrutura a tua resposta com uma breve introdução encorajadora, seguida dos pontos de conselho e uma conclusão inspiradora.`;
+
       const response = await ai.models.generateContent({
         model: "gemini-3-flash-preview",
-        contents: `Analisa as minhas transações recentes e dá-me 3 conselhos financeiros práticos em PT-PT. Sê sofisticado e encorajador.
-        Transações:
-        ${summary}
-        Saldo atual: ${stats.balance}€`,
+        contents: prompt,
       });
-      setAiAdvice(response.text || 'Não consegui gerar conselhos agora.');
-    } catch (err) {
-      console.error(err);
-      setAiAdvice('Erro ao contactar o consultor financeiro.');
+
+      if (!response.text) {
+        throw new Error('O modelo não devolveu nenhuma resposta.');
+      }
+
+      setAiAdvice(response.text);
+    } catch (err: any) {
+      console.error('Erro no Consultor AI:', err);
+      let errorMessage = 'Não consegui contactar o consultor financeiro neste momento.';
+      
+      if (err.message?.includes('403') || String(err).includes('403')) {
+        errorMessage = `### Erro 403: Acesso Negado\n\nEste erro no Android indica geralmente que:\n1. A sua **API Key** é inválida (deve começar por AIza).\n2. A **Generative AI API** não está ativa no seu projeto Google Cloud.\n3. Existem restrições de IP ou Região na sua chave.\n\nPor favor, verifique a sua chave no Google AI Studio.`;
+      } else if (err instanceof Error) {
+        errorMessage = `### Ups! Ocorreu um erro\n\n${err.message}\n\nVerifica se a tua ligação à internet está estável e se a chave da API está correta.`;
+      }
+      
+      setAiAdvice(errorMessage);
     } finally {
       setIsAiLoading(false);
     }
@@ -317,6 +373,18 @@ export default function App() {
                   icon={<Settings />} 
                   label="Categorias" 
                   onClick={() => { setShowCategoryManager(true); setShowMenu(false); }} 
+                />
+                <MenuOption 
+                  icon={<Sparkles />} 
+                  label="Configurar API Key" 
+                  onClick={async () => { 
+                    if (window.aistudio) {
+                      await window.aistudio.openSelectKey();
+                    } else {
+                      alert("Funcionalidade apenas disponível no ambiente AI Studio.");
+                    }
+                    setShowMenu(false); 
+                  }} 
                 />
                 <hr className="my-4 border-outline-variant/30" />
                 <MenuOption 
@@ -479,41 +547,41 @@ export default function App() {
                     <p className="text-center text-on-surface-variant py-12">Nenhuma transação encontrada.</p>
                   ) : (
                     transactions.map((t) => (
-                      <div key={t.id} className="group flex items-center justify-between p-4 bg-surface-container-low rounded-xl hover:bg-surface-container-highest transition-colors">
+                      <div key={t.id} className="group flex flex-col sm:flex-row sm:items-center justify-between p-4 bg-surface-container-low rounded-xl hover:bg-surface-container-highest transition-colors gap-4">
                         <div className="flex items-center gap-4">
                           <div className={cn(
-                            "w-12 h-12 rounded-full flex items-center justify-center",
+                            "w-12 h-12 rounded-full flex items-center justify-center shrink-0",
                             t.type === 'income' ? "bg-secondary-container text-secondary" : "bg-tertiary-container text-tertiary"
                           )}>
                             {t.type === 'income' ? <TrendingUp className="w-6 h-6" /> : <TrendingDown className="w-6 h-6" />}
                           </div>
-                          <div>
-                            <p className="font-semibold">{t.category}</p>
-                            <p className="text-xs text-on-surface-variant">{t.description || 'Sem descrição'}</p>
+                          <div className="min-w-0">
+                            <p className="font-semibold truncate">{t.category}</p>
+                            <p className="text-xs text-on-surface-variant truncate">{t.description || 'Sem descrição'}</p>
                             <p className="text-[10px] text-on-surface-variant/70 uppercase tracking-tighter">
                               {format(parseISO(t.date), "d 'de' MMMM", { locale: pt })}
                             </p>
                           </div>
                         </div>
-                        <div className="flex items-center gap-4">
+                        <div className="flex items-center justify-between sm:justify-end gap-4 w-full sm:w-auto border-t sm:border-t-0 pt-3 sm:pt-0 border-outline-variant/10">
                           <p className={cn(
                             "font-display font-bold text-lg",
                             t.type === 'income' ? "text-secondary" : "text-tertiary"
                           )}>
                             {t.type === 'income' ? '+' : '-'}{t.amount.toLocaleString('pt-PT', { style: 'currency', currency: 'EUR' })}
                           </p>
-                          <div className="flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                          <div className="flex gap-1">
                             <button 
                               onClick={() => handleEdit(t)}
-                              className="p-2 text-primary hover:bg-primary/10 rounded-full"
+                              className="p-3 text-primary hover:bg-primary/10 rounded-full"
                             >
-                              <Edit2 className="w-4 h-4" />
+                              <Edit2 className="w-5 h-5" />
                             </button>
                             <button 
                               onClick={() => handleDelete(t.id)}
-                              className="p-2 text-tertiary hover:bg-tertiary/10 rounded-full"
+                              className="p-3 text-tertiary hover:bg-tertiary/10 rounded-full"
                             >
-                              <Trash2 className="w-4 h-4" />
+                              <Trash2 className="w-5 h-5" />
                             </button>
                           </div>
                         </div>
@@ -586,9 +654,9 @@ export default function App() {
               </div>
 
               {aiAdvice && (
-                <Card className="prose prose-sm max-w-none">
-                  <div className="whitespace-pre-wrap leading-relaxed text-on-surface-variant">
-                    {aiAdvice}
+                <Card className="prose prose-sm max-w-none bg-surface-container-low border border-outline-variant/30">
+                  <div className="leading-relaxed text-on-surface-variant markdown-body">
+                    <Markdown>{aiAdvice}</Markdown>
                   </div>
                 </Card>
               )}
@@ -809,14 +877,14 @@ function CategoryManager({ categories, onUpdate }: { categories: Category[], onU
 
       <div className="max-h-64 overflow-y-auto space-y-2 pr-2">
         {categories.map(cat => (
-          <div key={cat.id} className="flex items-center justify-between p-3 bg-surface-container-low rounded-xl">
+          <div key={cat.id} className="flex flex-col sm:flex-row sm:items-center justify-between p-3 bg-surface-container-low rounded-xl gap-2">
             <div className="flex items-center gap-3">
               <div className="w-3 h-3 rounded-full" style={{ backgroundColor: cat.color }} />
               <span className="text-sm font-medium">{cat.name}</span>
               <span className="text-[10px] uppercase font-bold opacity-50">{cat.type === 'income' ? 'Rec' : 'Des'}</span>
             </div>
-            <button onClick={() => handleDelete(cat.id)} className="text-tertiary">
-              <Trash2 className="w-4 h-4" />
+            <button onClick={() => handleDelete(cat.id)} className="p-3 text-tertiary hover:bg-tertiary/10 rounded-full self-end sm:self-auto">
+              <Trash2 className="w-5 h-5" />
             </button>
           </div>
         ))}

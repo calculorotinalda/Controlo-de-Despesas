@@ -5,6 +5,17 @@
 
 const STORAGE_KEY = 'atelier_financeiro_data';
 
+// --- Types ---
+
+declare global {
+  interface Window {
+    aistudio?: {
+      hasSelectedApiKey: () => Promise<boolean>;
+      openSelectKey: () => Promise<void>;
+    };
+  }
+}
+
 export interface Transaction {
   id: string;
   amount: number;

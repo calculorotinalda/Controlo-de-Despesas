@@ -1,44 +1,30 @@
-# Atelier Financeiro 💎
+# Atelier Financeiro 🎨
 
-Uma aplicação de gestão financeira pessoal sofisticada, com design editorial e foco em privacidade. Esta aplicação foi desenvolvida para funcionar de forma totalmente **offline** e **embedded**, sendo ideal para conversão em APK Android.
+O **Atelier Financeiro** é uma aplicação sofisticada de gestão de finanças pessoais, desenhada para trazer clareza e elegância ao controlo de gastos e receitas.
 
 ## ✨ Funcionalidades
-- **Gestão de Transações**: Registo de rendimentos e despesas com categorias personalizadas.
-- **CRUD Completo**: Possibilidade de editar e eliminar transações e categorias.
-- **Categorias Dinâmicas**: Crie e gira as suas próprias categorias de receitas e despesas.
-- **Dashboard Visual**: Gráficos de atividade semanal e distribuição de gastos por categoria.
-- **Histórico Inteligente**: Vista cronológica ou agrupada por categoria para melhor análise.
-- **Consultor AI**: Insights financeiros inteligentes utilizando o modelo Google Gemini.
-- **Privacidade Total**: Todos os dados são armazenados localmente no dispositivo (LocalStorage).
-- **Design Premium**: Interface baseada em princípios editoriais, com logótipo oficial e menu lateral intuitivo.
+- **Gestão de Transações:** Adicione, edite e elimine receitas e despesas com facilidade.
+- **Categorias Personalizadas:** Organize as suas finanças com categorias e cores à sua escolha.
+- **Consultor AI:** Integração com Google Gemini para análise de hábitos e conselhos financeiros personalizados.
+- **Dashboard Visual:** Gráficos intuitivos para visualização de gastos por categoria e atividade recente.
+- **Totalmente Responsivo:** Otimizado para Desktop e dispositivos Android/iOS.
+- **Privacidade:** Os dados são armazenados localmente no seu navegador.
 
-## 📱 Como gerar o APK (Android)
-Este projeto utiliza o **Capacitor** para converter a Web App num binário nativo.
+## 🚀 Tecnologias Utilizadas
+- React 18
+- TypeScript
+- Tailwind CSS (Estilização baseada em Material Design 3)
+- Framer Motion (Animações)
+- Recharts (Gráficos)
+- Google Generative AI (Gemini API)
+- Lucide React (Ícones)
 
-1. **Instalar dependências**:
-   ```bash
-   npm install
-   ```
-2. **Gerar a Build de Produção**:
-   ```bash
-   npm run build
-   ```
-3. **Sincronizar com Android**:
-   ```bash
-   npx cap add android
-   npx cap sync android
-   ```
-4. **Gerar APK no Android Studio**:
-   - Abra o projeto: `npx cap open android`
-   - No Android Studio, vá a: **Build > Build APK(s) > Build APK(s)**.
+## 🛠️ Configuração
+Para utilizar o Consultor AI, é necessário configurar uma **GEMINI_API_KEY**. 
+Pode obter a sua chave no [Google AI Studio](https://aistudio.google.com/).
 
-## 🛠️ Tecnologias Utilizadas
-- **React 19** + **Vite**
-- **Tailwind CSS 4**
-- **Capacitor** (para suporte nativo Android)
-- **Recharts** (para visualização de dados)
-- **Motion** (para animações fluidas)
-- **Google Gemini API** (para o consultor financeiro)
+## 📱 Instalação Mobile
+Esta aplicação foi desenhada como uma PWA (Progressive Web App). Pode "Adicionar ao Ecrã Principal" no seu telemóvel para uma experiência semelhante a uma aplicação nativa.
 
-## 📄 Licença
-Este projeto está sob a licença Apache-2.0.
+---
+Desenvolvido com ❤️ para [calculorotina.com](https://calculorotina.com)
