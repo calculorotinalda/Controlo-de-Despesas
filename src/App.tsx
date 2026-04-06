@@ -151,10 +151,8 @@ export default function App() {
   };
 
   const handleDelete = (id: string) => {
-    if (window.confirm("Deseja eliminar esta transação?")) {
-      storageService.deleteTransaction(id);
-      refreshData();
-    }
+    storageService.deleteTransaction(id);
+    setTransactions(prev => prev.filter(t => t.id !== id));
   };
 
   const handleEdit = (transaction: Transaction) => {
@@ -400,7 +398,7 @@ Estrutura a tua resposta com uma breve introdução encorajadora, seguida dos po
               </nav>
 
               <button 
-                onClick={() => { if(window.confirm("Deseja sair da aplicação?")) window.close(); }}
+                onClick={() => { setShowMenu(false); }}
                 className="flex items-center gap-4 p-4 text-tertiary hover:bg-tertiary-container/20 rounded-xl transition-colors mt-auto"
               >
                 <LogOut className="w-5 h-5" />
@@ -543,51 +541,66 @@ Estrutura a tua resposta com uma breve introdução encorajadora, seguida dos po
 
               {historyView === 'list' ? (
                 <div className="space-y-4">
-                  {transactions.length === 0 ? (
-                    <p className="text-center text-on-surface-variant py-12">Nenhuma transação encontrada.</p>
-                  ) : (
-                    transactions.map((t) => (
-                      <div key={t.id} className="group flex flex-col sm:flex-row sm:items-center justify-between p-4 bg-surface-container-low rounded-xl hover:bg-surface-container-highest transition-colors gap-4">
-                        <div className="flex items-center gap-4">
-                          <div className={cn(
-                            "w-12 h-12 rounded-full flex items-center justify-center shrink-0",
-                            t.type === 'income' ? "bg-secondary-container text-secondary" : "bg-tertiary-container text-tertiary"
-                          )}>
-                            {t.type === 'income' ? <TrendingUp className="w-6 h-6" /> : <TrendingDown className="w-6 h-6" />}
+                  <AnimatePresence mode="popLayout">
+                    {transactions.length === 0 ? (
+                      <motion.p 
+                        initial={{ opacity: 0 }}
+                        animate={{ opacity: 1 }}
+                        className="text-center text-on-surface-variant py-12"
+                      >
+                        Nenhuma transação encontrada.
+                      </motion.p>
+                    ) : (
+                      transactions.map((t) => (
+                        <motion.div 
+                          layout
+                          initial={{ opacity: 0, y: 10 }}
+                          animate={{ opacity: 1, y: 0 }}
+                          exit={{ opacity: 0, scale: 0.95 }}
+                          key={t.id} 
+                          className="group flex flex-col sm:flex-row sm:items-center justify-between p-4 bg-surface-container-low rounded-xl hover:bg-surface-container-highest transition-colors gap-4"
+                        >
+                          <div className="flex items-center gap-4">
+                            <div className={cn(
+                              "w-12 h-12 rounded-full flex items-center justify-center shrink-0",
+                              t.type === 'income' ? "bg-secondary-container text-secondary" : "bg-tertiary-container text-tertiary"
+                            )}>
+                              {t.type === 'income' ? <TrendingUp className="w-6 h-6" /> : <TrendingDown className="w-6 h-6" />}
+                            </div>
+                            <div className="min-w-0">
+                              <p className="font-semibold truncate">{t.category}</p>
+                              <p className="text-xs text-on-surface-variant truncate">{t.description || 'Sem descrição'}</p>
+                              <p className="text-[10px] text-on-surface-variant/70 uppercase tracking-tighter">
+                                {format(parseISO(t.date), "d 'de' MMMM", { locale: pt })}
+                              </p>
+                            </div>
                           </div>
-                          <div className="min-w-0">
-                            <p className="font-semibold truncate">{t.category}</p>
-                            <p className="text-xs text-on-surface-variant truncate">{t.description || 'Sem descrição'}</p>
-                            <p className="text-[10px] text-on-surface-variant/70 uppercase tracking-tighter">
-                              {format(parseISO(t.date), "d 'de' MMMM", { locale: pt })}
+                          <div className="flex items-center justify-between sm:justify-end gap-4 w-full sm:w-auto border-t sm:border-t-0 pt-3 sm:pt-0 border-outline-variant/10">
+                            <p className={cn(
+                              "font-display font-bold text-lg",
+                              t.type === 'income' ? "text-secondary" : "text-tertiary"
+                            )}>
+                              {t.type === 'income' ? '+' : '-'}{t.amount.toLocaleString('pt-PT', { style: 'currency', currency: 'EUR' })}
                             </p>
+                            <div className="flex gap-1">
+                              <button 
+                                onClick={() => handleEdit(t)}
+                                className="p-3 text-primary hover:bg-primary/10 rounded-full"
+                              >
+                                <Edit2 className="w-5 h-5" />
+                              </button>
+                              <button 
+                                onClick={() => handleDelete(t.id)}
+                                className="p-3 text-tertiary hover:bg-tertiary/10 rounded-full"
+                              >
+                                <Trash2 className="w-5 h-5" />
+                              </button>
+                            </div>
                           </div>
-                        </div>
-                        <div className="flex items-center justify-between sm:justify-end gap-4 w-full sm:w-auto border-t sm:border-t-0 pt-3 sm:pt-0 border-outline-variant/10">
-                          <p className={cn(
-                            "font-display font-bold text-lg",
-                            t.type === 'income' ? "text-secondary" : "text-tertiary"
-                          )}>
-                            {t.type === 'income' ? '+' : '-'}{t.amount.toLocaleString('pt-PT', { style: 'currency', currency: 'EUR' })}
-                          </p>
-                          <div className="flex gap-1">
-                            <button 
-                              onClick={() => handleEdit(t)}
-                              className="p-3 text-primary hover:bg-primary/10 rounded-full"
-                            >
-                              <Edit2 className="w-5 h-5" />
-                            </button>
-                            <button 
-                              onClick={() => handleDelete(t.id)}
-                              className="p-3 text-tertiary hover:bg-tertiary/10 rounded-full"
-                            >
-                              <Trash2 className="w-5 h-5" />
-                            </button>
-                          </div>
-                        </div>
-                      </div>
-                    ))
-                  )}
+                        </motion.div>
+                      ))
+                    )}
+                  </AnimatePresence>
                 </div>
               ) : (
                 <div className="space-y-8">
@@ -845,10 +858,8 @@ function CategoryManager({ categories, onUpdate }: { categories: Category[], onU
   };
 
   const handleDelete = (id: string) => {
-    if (window.confirm("Deseja eliminar esta categoria?")) {
-      storageService.deleteCategory(id);
-      onUpdate();
-    }
+    storageService.deleteCategory(id);
+    onUpdate();
   };
 
   return (
