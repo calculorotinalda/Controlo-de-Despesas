@@ -256,9 +256,10 @@ Saldo Atual: ${stats.balance.toLocaleString('pt-PT', { style: 'currency', curren
 
 Estrutura a tua resposta com uma breve introdução encorajadora, seguida dos pontos de conselho e uma conclusão inspiradora.`;
 
+      // Use a valid model name and correct syntax for @google/genai
       const response = await ai.models.generateContent({
-        model: "gemini-3-flash-preview",
-        contents: prompt,
+        model: "gemini-1.5-flash",
+        contents: [{ role: 'user', parts: [{ text: prompt }] }]
       });
 
       if (!response.text) {
@@ -270,8 +271,9 @@ Estrutura a tua resposta com uma breve introdução encorajadora, seguida dos po
       console.error('Erro no Consultor AI:', err);
       let errorMessage = 'Não consegui contactar o consultor financeiro neste momento.';
       
+      // Detailed error for 403 on Android
       if (err.message?.includes('403') || String(err).includes('403')) {
-        errorMessage = `### Erro 403: Acesso Negado\n\nEste erro no Android indica geralmente que:\n1. A sua **API Key** é inválida (deve começar por AIza).\n2. A **Generative AI API** não está ativa no seu projeto Google Cloud.\n3. Existem restrições de IP ou Região na sua chave.\n\nPor favor, verifique a sua chave no Google AI Studio.`;
+        errorMessage = `### Erro 403: Acesso Negado\n\nEste erro no Android indica geralmente que:\n\n1. **API Key Restrita:** Verifique no Google Cloud Console se a sua chave tem restrições de "Android apps" ou "Referrer". Remova-as para testar.\n2. **API não Ativa:** Confirme se a "Generative AI API" está ativa no seu projeto.\n3. **Região não Suportada:** Se estiver a usar dados móveis, tente ligar-se a uma rede Wi-Fi.\n\n**Dica:** Tente criar uma nova chave sem qualquer restrição no Google AI Studio.`;
       } else if (err instanceof Error) {
         errorMessage = `### Ups! Ocorreu um erro\n\n${err.message}\n\nVerifica se a tua ligação à internet está estável e se a chave da API está correta.`;
       }
