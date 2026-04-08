@@ -39,6 +39,7 @@ interface AppData {
   userProfile: {
     displayName: string;
     currency: string;
+    apiKey?: string;
   };
 }
 

@@ -15,6 +15,7 @@ import {
   LogOut,
   Wallet,
   X,
+  Key,
   Loader2,
   Trash2,
   Menu,
@@ -24,7 +25,11 @@ import {
   PieChart as PieChartIcon,
   List,
   ChevronRight,
-  PlusCircle
+  PlusCircle,
+  BarChart as BarChartIcon,
+  Calendar,
+  Filter,
+  Facebook
 } from 'lucide-react';
 import { 
   AreaChart, 
@@ -36,13 +41,40 @@ import {
   ResponsiveContainer,
   PieChart,
   Pie,
-  Cell
+  Cell,
+  BarChart,
+  Bar,
+  Legend
 } from 'recharts';
 import { format, parseISO } from 'date-fns';
 import { pt } from 'date-fns/locale';
 import { motion, AnimatePresence } from 'motion/react';
 import { GoogleGenAI } from "@google/genai";
 import Markdown from 'react-markdown';
+import { 
+  onAuthStateChanged, 
+  signInWithPopup, 
+  signOut, 
+  signInWithEmailAndPassword,
+  createUserWithEmailAndPassword,
+  User as FirebaseUser 
+} from 'firebase/auth';
+import { 
+  collection, 
+  query, 
+  where, 
+  onSnapshot, 
+  addDoc, 
+  updateDoc, 
+  deleteDoc, 
+  doc, 
+  setDoc, 
+  getDoc,
+  orderBy,
+  Timestamp,
+  getDocFromServer
+} from 'firebase/firestore';
+import { auth, db, googleProvider, facebookProvider } from './lib/firebase';
 import { cn } from './lib/utils';
 import { storageService, Category, Transaction } from './services/storage';
 
@@ -113,13 +145,19 @@ const Card = ({ children, className }: { children: React.ReactNode, className?: 
 // --- Main App ---
 
 export default function App() {
+  const [user, setUser] = useState<FirebaseUser | null>(null);
+  const [isAuthReady, setIsAuthReady] = useState(false);
   const [loading, setLoading] = useState(true);
   const [transactions, setTransactions] = useState<Transaction[]>([]);
   const [categories, setCategories] = useState<Category[]>([]);
-  const [userProfile, setUserProfile] = useState({ displayName: 'Utilizador', currency: 'EUR' });
-  const [activeTab, setActiveTab] = useState<'dashboard' | 'history' | 'ai'>('dashboard');
+  const [userProfile, setUserProfile] = useState<{ displayName: string, currency: string, apiKey?: string }>({ displayName: 'Utilizador', currency: 'EUR' });
+  const [activeTab, setActiveTab] = useState<'dashboard' | 'history' | 'stats' | 'ai'>('dashboard');
   const [historyView, setHistoryView] = useState<'list' | 'category'>('list');
+  const [statsPeriod, setStatsPeriod] = useState<'monthly' | 'annual'>('monthly');
+  const [statsYear, setStatsYear] = useState(new Date().getFullYear());
+  const [statsMonth, setStatsMonth] = useState(new Date().getMonth());
   const [showAddModal, setShowAddModal] = useState(false);
+  const [showApiKeyModal, setShowApiKeyModal] = useState(false);
   const [editingTransaction, setEditingTransaction] = useState<Transaction | null>(null);
   const [showMenu, setShowMenu] = useState(false);
   const [showAbout, setShowAbout] = useState(false);
@@ -127,32 +165,210 @@ export default function App() {
   const [showCategoryManager, setShowCategoryManager] = useState(false);
   const [aiAdvice, setAiAdvice] = useState<string>('');
   const [isAiLoading, setIsAiLoading] = useState(false);
-
   const [showSplash, setShowSplash] = useState(true);
 
-  // Load Data from Local Storage
+  // Auth States
+  const [isRegistering, setIsRegistering] = useState(false);
+  const [email, setEmail] = useState('');
+  const [password, setPassword] = useState('');
+  const [authError, setAuthError] = useState('');
+  const [isAuthLoading, setIsAuthLoading] = useState(false);
+
+  // Operation Type Enum for Error Handling
+  const OperationType = {
+    CREATE: 'create',
+    UPDATE: 'update',
+    DELETE: 'delete',
+    LIST: 'list',
+    GET: 'get',
+    WRITE: 'write',
+  } as const;
+
+  type OperationType = typeof OperationType[keyof typeof OperationType];
+
+  const handleFirestoreError = (error: unknown, operationType: OperationType, path: string | null) => {
+    const errInfo = {
+      error: error instanceof Error ? error.message : String(error),
+      authInfo: {
+        userId: auth.currentUser?.uid,
+        email: auth.currentUser?.email,
+        emailVerified: auth.currentUser?.emailVerified,
+        isAnonymous: auth.currentUser?.isAnonymous,
+      },
+      operationType,
+      path
+    };
+    console.error('Firestore Error: ', JSON.stringify(errInfo));
+  };
+
+  // Auth Listener
   useEffect(() => {
-    const data = storageService.getData();
-    setTransactions(data.transactions);
-    setCategories(data.categories);
-    setUserProfile(data.userProfile);
-    setLoading(false);
-    
+    const unsubscribe = onAuthStateChanged(auth, async (currentUser) => {
+      setUser(currentUser);
+      setIsAuthReady(true);
+      
+      if (currentUser) {
+        // Sync user profile
+        const userDocRef = doc(db, 'users', currentUser.uid);
+        try {
+          const userDoc = await getDoc(userDocRef);
+          if (!userDoc.exists()) {
+            const newProfile = {
+              uid: currentUser.uid,
+              displayName: currentUser.displayName || 'Utilizador',
+              email: currentUser.email || '',
+              currency: 'EUR',
+              createdAt: new Date().toISOString()
+            };
+            await setDoc(userDocRef, newProfile);
+            setUserProfile(newProfile);
+          } else {
+            setUserProfile(userDoc.data() as any);
+          }
+        } catch (error) {
+          handleFirestoreError(error, OperationType.GET, `users/${currentUser.uid}`);
+        }
+      } else {
+        setLoading(false);
+      }
+    });
+    return () => unsubscribe();
+  }, []);
+
+  // Data Listeners
+  useEffect(() => {
+    if (!user || !isAuthReady) return;
+
+    const transactionsQuery = query(
+      collection(db, 'transactions'),
+      where('uid', '==', user.uid),
+      orderBy('date', 'desc')
+    );
+
+    const categoriesQuery = query(
+      collection(db, 'categories'),
+      where('uid', '==', user.uid)
+    );
+
+    const unsubTransactions = onSnapshot(transactionsQuery, (snapshot) => {
+      const docs = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Transaction));
+      setTransactions(docs);
+      setLoading(false);
+    }, (error) => handleFirestoreError(error, OperationType.LIST, 'transactions'));
+
+    const unsubCategories = onSnapshot(categoriesQuery, (snapshot) => {
+      const docs = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Category));
+      setCategories(docs);
+    }, (error) => handleFirestoreError(error, OperationType.LIST, 'categories'));
+
+    return () => {
+      unsubTransactions();
+      unsubCategories();
+    };
+  }, [user, isAuthReady]);
+
+  // Test Connection
+  useEffect(() => {
+    async function testConnection() {
+      try {
+        await getDocFromServer(doc(db, 'test', 'connection'));
+      } catch (error) {
+        if(error instanceof Error && error.message.includes('the client is offline')) {
+          console.error("Please check your Firebase configuration.");
+        }
+      }
+    }
+    testConnection();
+  }, []);
+
+  useEffect(() => {
     const timer = setTimeout(() => {
       setShowSplash(false);
     }, 2000);
     return () => clearTimeout(timer);
   }, []);
 
-  const refreshData = () => {
-    const data = storageService.getData();
-    setTransactions(data.transactions);
-    setCategories(data.categories);
+  const handleLogin = async () => {
+    setAuthError('');
+    setIsAuthLoading(true);
+    try {
+      await signInWithPopup(auth, googleProvider);
+    } catch (error: any) {
+      console.error('Erro no login Google:', error);
+      setAuthError('Falha ao entrar com o Google.');
+    } finally {
+      setIsAuthLoading(false);
+    }
   };
 
-  const handleDelete = (id: string) => {
-    storageService.deleteTransaction(id);
-    setTransactions(prev => prev.filter(t => t.id !== id));
+  const handleFacebookLogin = async () => {
+    setAuthError('');
+    setIsAuthLoading(true);
+    try {
+      await signInWithPopup(auth, facebookProvider);
+    } catch (error: any) {
+      console.error('Erro no login Facebook:', error);
+      if (error.code === 'auth/account-exists-with-different-credential') {
+        setAuthError('Já existe uma conta com este email associada a outro método de login.');
+      } else {
+        setAuthError('Falha ao entrar com o Facebook.');
+      }
+    } finally {
+      setIsAuthLoading(false);
+    }
+  };
+
+  const handleEmailAuth = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setAuthError('');
+    setIsAuthLoading(true);
+    try {
+      if (isRegistering) {
+        await createUserWithEmailAndPassword(auth, email, password);
+      } else {
+        await signInWithEmailAndPassword(auth, email, password);
+      }
+    } catch (error: any) {
+      console.error('Erro na autenticação por email:', error);
+      if (error.code === 'auth/email-already-in-use') {
+        setAuthError('Este email já está em utilização.');
+      } else if (error.code === 'auth/invalid-credential' || error.code === 'auth/user-not-found' || error.code === 'auth/wrong-password') {
+        setAuthError('Email ou palavra-passe incorretos.');
+      } else if (error.code === 'auth/weak-password') {
+        setAuthError('A palavra-passe deve ter pelo menos 6 caracteres.');
+      } else if (error.code === 'auth/operation-not-allowed') {
+        setAuthError('O login por email não está ativado na consola do Firebase. Por favor, ative-o em Authentication > Sign-in method.');
+      } else if (error.code === 'auth/too-many-requests') {
+        setAuthError('Demasiadas tentativas. Tente mais tarde.');
+      } else {
+        setAuthError(`Erro: ${error.message}`);
+      }
+    } finally {
+      setIsAuthLoading(false);
+    }
+  };
+
+  const handleLogout = async () => {
+    try {
+      await signOut(auth);
+      setTransactions([]);
+      setCategories([]);
+      setUserProfile({ displayName: 'Utilizador', currency: 'EUR' });
+    } catch (error) {
+      console.error('Erro no logout:', error);
+    }
+  };
+
+  const refreshData = () => {
+    // No-op with real-time listeners
+  };
+
+  const handleDelete = async (id: string) => {
+    try {
+      await deleteDoc(doc(db, 'transactions', id));
+    } catch (error) {
+      handleFirestoreError(error, OperationType.DELETE, `transactions/${id}`);
+    }
   };
 
   const handleEdit = (transaction: Transaction) => {
@@ -214,9 +430,9 @@ export default function App() {
     try {
       // Use the provided key as a fallback if environment variables are missing
       const PROVIDED_KEY = "AIzaSyBumVDztYqo3B9S1jdcld-J5v8Z4_Loj58";
-      let apiKey = process.env.GEMINI_API_KEY || process.env.API_KEY;
+      let apiKey = userProfile.apiKey || process.env.GEMINI_API_KEY || process.env.API_KEY;
       
-      // If no environment key is found, use the provided one
+      // If no environment key is found and no user key, use the provided one
       if (!apiKey || apiKey === 'MY_GEMINI_API_KEY') {
         apiKey = PROVIDED_KEY;
       }
@@ -284,7 +500,7 @@ Estrutura a tua resposta com uma breve introdução encorajadora, seguida dos po
     }
   };
 
-  if (loading || showSplash) {
+  if (loading || showSplash || !isAuthReady) {
     return (
       <div className="h-screen flex flex-col items-center justify-center bg-surface gap-6">
         <motion.div
@@ -305,6 +521,125 @@ Estrutura a tua resposta com uma breve introdução encorajadora, seguida dos po
     );
   }
 
+  if (!user) {
+    return (
+      <div className="min-h-screen bg-[#f5f2ed] flex flex-col items-center justify-center p-6">
+        <motion.div
+          initial={{ y: 20, opacity: 0 }}
+          animate={{ y: 0, opacity: 1 }}
+          className="max-w-md w-full space-y-8 bg-white p-10 rounded-[32px] shadow-2xl shadow-stone-200 border border-stone-100"
+        >
+          <div className="text-center space-y-4">
+            <div className="relative inline-block">
+              <img 
+                src={LOGO_URL} 
+                alt="Atelier Financeiro" 
+                className="w-24 h-24 mx-auto object-contain relative z-10"
+                referrerPolicy="no-referrer"
+              />
+              <div className="absolute inset-0 bg-primary/5 blur-2xl rounded-full -z-0" />
+            </div>
+            <div className="space-y-1">
+              <h1 className="text-3xl font-serif font-light tracking-tight text-stone-900">Atelier Financeiro</h1>
+              <p className="text-stone-500 text-sm font-medium uppercase tracking-widest">
+                {isRegistering ? 'Criar Conta' : 'Aceder ao Atelier'}
+              </p>
+            </div>
+          </div>
+          
+          <form onSubmit={handleEmailAuth} className="space-y-5">
+            <div className="space-y-2">
+              <label className="text-[10px] font-bold text-stone-400 uppercase tracking-[0.2em] ml-1">Endereço de Email</label>
+              <input 
+                type="email" 
+                value={email}
+                onChange={(e) => setEmail(e.target.value)}
+                placeholder="exemplo@email.com"
+                className="w-full bg-stone-50 rounded-2xl px-5 py-4 outline-none focus:ring-2 ring-primary/10 border border-stone-200 transition-all placeholder:text-stone-300"
+                required
+                disabled={isAuthLoading}
+              />
+            </div>
+            <div className="space-y-2">
+              <label className="text-[10px] font-bold text-stone-400 uppercase tracking-[0.2em] ml-1">Palavra-passe</label>
+              <input 
+                type="password" 
+                value={password}
+                onChange={(e) => setPassword(e.target.value)}
+                placeholder="••••••••"
+                className="w-full bg-stone-50 rounded-2xl px-5 py-4 outline-none focus:ring-2 ring-primary/10 border border-stone-200 transition-all placeholder:text-stone-300"
+                required
+                disabled={isAuthLoading}
+              />
+            </div>
+
+            {authError && (
+              <motion.div 
+                initial={{ opacity: 0, y: -10 }}
+                animate={{ opacity: 1, y: 0 }}
+                className="p-4 bg-error/5 border border-error/10 rounded-xl"
+              >
+                <p className="text-xs text-error font-medium text-center leading-relaxed">{authError}</p>
+              </motion.div>
+            )}
+
+            <Button 
+              type="submit" 
+              className="w-full py-4 rounded-2xl font-bold shadow-lg shadow-primary/10 h-14"
+              disabled={isAuthLoading}
+            >
+              {isAuthLoading ? <Loader2 className="w-6 h-6 animate-spin" /> : (isRegistering ? 'Registar Agora' : 'Entrar no Atelier')}
+            </Button>
+          </form>
+
+          <div className="relative py-2">
+            <div className="absolute inset-0 flex items-center">
+              <div className="w-full border-t border-stone-100"></div>
+            </div>
+            <div className="relative flex justify-center text-[10px] uppercase tracking-[0.3em]">
+              <span className="bg-white px-4 text-stone-300 font-bold">Ou</span>
+            </div>
+          </div>
+
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+            <button 
+              onClick={handleLogin} 
+              disabled={isAuthLoading}
+              className="w-full py-4 rounded-2xl text-sm font-bold flex items-center justify-center gap-3 border border-stone-200 hover:bg-stone-50 transition-all disabled:opacity-50"
+            >
+              <img src="https://www.google.com/favicon.ico" className="w-5 h-5" alt="" />
+              Google
+            </button>
+
+            <button 
+              onClick={handleFacebookLogin} 
+              disabled={isAuthLoading}
+              className="w-full py-4 rounded-2xl text-sm font-bold flex items-center justify-center gap-3 bg-[#1877f2] text-white hover:bg-[#166fe5] transition-all disabled:opacity-50 shadow-lg shadow-blue-500/10"
+            >
+              <Facebook className="w-5 h-5 fill-current" />
+              Facebook
+            </button>
+          </div>
+
+          <div className="text-center pt-2">
+            <button 
+              onClick={() => { setIsRegistering(!isRegistering); setAuthError(''); }}
+              disabled={isAuthLoading}
+              className="text-sm text-primary font-bold hover:underline decoration-2 underline-offset-4"
+            >
+              {isRegistering ? 'Já tem conta? Entre aqui' : 'Não tem conta? Registe-se'}
+            </button>
+          </div>
+          
+          <p className="text-[10px] text-stone-400 text-center pt-6 leading-relaxed">
+            Ao aceder, concorda com os nossos <br />
+            <span className="underline">Termos de Utilização</span> e <span className="underline">Política de Privacidade</span>.
+          </p>
+        </motion.div>
+      </div>
+    );
+  }
+
   return (
     <div className="min-h-screen bg-surface pb-24">
       {/* Header */}
@@ -320,13 +655,18 @@ Estrutura a tua resposta com uma breve introdução encorajadora, seguida dos po
             referrerPolicy="no-referrer"
           />
         </div>
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-3">
           <div className="text-right hidden sm:block">
             <p className="text-sm font-bold">{userProfile.displayName}</p>
           </div>
-          <div className="w-10 h-10 rounded-full bg-primary-container flex items-center justify-center text-on-primary">
-            <UserIcon className="w-6 h-6" />
-          </div>
+          <button 
+            onClick={handleLogout}
+            className="w-10 h-10 rounded-full bg-primary-container flex items-center justify-center text-on-primary hover:bg-error/20 hover:text-error transition-colors group relative"
+            title="Sair"
+          >
+            <UserIcon className="w-6 h-6 group-hover:hidden" />
+            <LogOut className="w-5 h-5 hidden group-hover:block" />
+          </button>
         </div>
       </header>
 
@@ -370,21 +710,20 @@ Estrutura a tua resposta com uma breve introdução encorajadora, seguida dos po
                   onClick={() => { setActiveTab('history'); setShowMenu(false); }} 
                 />
                 <MenuOption 
+                  icon={<BarChartIcon />} 
+                  label="Estatísticas" 
+                  active={activeTab === 'stats'}
+                  onClick={() => { setActiveTab('stats'); setShowMenu(false); }} 
+                />
+                <MenuOption 
                   icon={<Settings />} 
                   label="Categorias" 
                   onClick={() => { setShowCategoryManager(true); setShowMenu(false); }} 
                 />
                 <MenuOption 
-                  icon={<Sparkles />} 
-                  label="Configurar API Key" 
-                  onClick={async () => { 
-                    if (window.aistudio) {
-                      await window.aistudio.openSelectKey();
-                    } else {
-                      alert("Funcionalidade apenas disponível no ambiente AI Studio.");
-                    }
-                    setShowMenu(false); 
-                  }} 
+                  icon={<Key />} 
+                  label="Inserir API Key Manual" 
+                  onClick={() => { setShowApiKeyModal(true); setShowMenu(false); }} 
                 />
                 <hr className="my-4 border-outline-variant/30" />
                 <MenuOption 
@@ -400,7 +739,7 @@ Estrutura a tua resposta com uma breve introdução encorajadora, seguida dos po
               </nav>
 
               <button 
-                onClick={() => { setShowMenu(false); }}
+                onClick={handleLogout}
                 className="flex items-center gap-4 p-4 text-tertiary hover:bg-tertiary-container/20 rounded-xl transition-colors mt-auto"
               >
                 <LogOut className="w-5 h-5" />
@@ -512,6 +851,207 @@ Estrutura a tua resposta com uma breve introdução encorajadora, seguida dos po
             </motion.div>
           )}
 
+          {activeTab === 'stats' && (
+            <motion.div 
+              key="stats"
+              initial={{ opacity: 0, x: -20 }}
+              animate={{ opacity: 1, x: 0 }}
+              exit={{ opacity: 0, x: 20 }}
+              className="space-y-8"
+            >
+              <div className="flex justify-center py-4">
+                <img src={LOGO_URL} alt="Logo" className="w-20 h-20 object-contain" referrerPolicy="no-referrer" />
+              </div>
+              
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+                <h2 className="text-2xl">Estatísticas</h2>
+                <div className="flex bg-surface-container-low p-1 rounded-xl">
+                  <button 
+                    onClick={() => setStatsPeriod('monthly')}
+                    className={cn("px-4 py-2 rounded-lg text-sm font-bold transition-all", statsPeriod === 'monthly' ? "bg-surface shadow-sm text-primary" : "text-on-surface-variant")}
+                  >
+                    Mensal
+                  </button>
+                  <button 
+                    onClick={() => setStatsPeriod('annual')}
+                    className={cn("px-4 py-2 rounded-lg text-sm font-bold transition-all", statsPeriod === 'annual' ? "bg-surface shadow-sm text-primary" : "text-on-surface-variant")}
+                  >
+                    Anual
+                  </button>
+                </div>
+              </div>
+
+              {/* Filters */}
+              <div className="flex flex-wrap gap-3">
+                <div className="flex items-center gap-2 bg-surface-container-low px-4 py-2 rounded-xl">
+                  <Calendar className="w-4 h-4 text-primary" />
+                  <select 
+                    value={statsYear} 
+                    onChange={(e) => setStatsYear(parseInt(e.target.value))}
+                    className="bg-transparent text-sm font-bold outline-none"
+                  >
+                    {Array.from({ length: 5 }, (_, i) => new Date().getFullYear() - i).map(y => (
+                      <option key={y} value={y}>{y}</option>
+                    ))}
+                  </select>
+                </div>
+                {statsPeriod === 'monthly' && (
+                  <div className="flex items-center gap-2 bg-surface-container-low px-4 py-2 rounded-xl">
+                    <Filter className="w-4 h-4 text-primary" />
+                    <select 
+                      value={statsMonth} 
+                      onChange={(e) => setStatsMonth(parseInt(e.target.value))}
+                      className="bg-transparent text-sm font-bold outline-none"
+                    >
+                      {Array.from({ length: 12 }, (_, i) => (
+                        <option key={i} value={i}>
+                          {format(new Date(2000, i, 1), 'MMMM', { locale: pt })}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+                )}
+              </div>
+
+              {/* Stats Summary */}
+              {(() => {
+                const filtered = transactions.filter(t => {
+                  const d = parseISO(t.date);
+                  if (statsPeriod === 'monthly') {
+                    return d.getFullYear() === statsYear && d.getMonth() === statsMonth;
+                  }
+                  return d.getFullYear() === statsYear;
+                });
+
+                const income = filtered.filter(t => t.type === 'income').reduce((acc, t) => acc + t.amount, 0);
+                const expenses = filtered.filter(t => t.type === 'expense').reduce((acc, t) => acc + t.amount, 0);
+                const balance = income - expenses;
+
+                const expensesByCategory = filtered
+                  .filter(t => t.type === 'expense')
+                  .reduce((acc, t) => {
+                    acc[t.category] = (acc[t.category] || 0) + t.amount;
+                    return acc;
+                  }, {} as Record<string, number>);
+
+                const pieData = Object.entries(expensesByCategory).map(([name, value]) => ({ name, value }));
+
+                // Monthly breakdown for annual view
+                const monthlyData = Array.from({ length: 12 }, (_, i) => {
+                  const monthTransactions = filtered.filter(t => parseISO(t.date).getMonth() === i);
+                  return {
+                    name: format(new Date(2000, i, 1), 'MMM', { locale: pt }),
+                    receitas: monthTransactions.filter(t => t.type === 'income').reduce((acc, t) => acc + t.amount, 0),
+                    despesas: monthTransactions.filter(t => t.type === 'expense').reduce((acc, t) => acc + t.amount, 0),
+                  };
+                });
+
+                return (
+                  <div className="space-y-8">
+                    <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+                      <Card className="bg-secondary-container/20 border border-secondary/10">
+                        <p className="text-[10px] uppercase font-bold text-secondary tracking-widest mb-1">Total Receitas</p>
+                        <p className="text-2xl font-display font-bold text-secondary">
+                          {income.toLocaleString('pt-PT', { style: 'currency', currency: 'EUR' })}
+                        </p>
+                      </Card>
+                      <Card className="bg-tertiary-container/20 border border-tertiary/10">
+                        <p className="text-[10px] uppercase font-bold text-tertiary tracking-widest mb-1">Total Despesas</p>
+                        <p className="text-2xl font-display font-bold text-tertiary">
+                          {expenses.toLocaleString('pt-PT', { style: 'currency', currency: 'EUR' })}
+                        </p>
+                      </Card>
+                      <Card className={cn("border", balance >= 0 ? "bg-primary/5 border-primary/10" : "bg-error/5 border-error/10")}>
+                        <p className="text-[10px] uppercase font-bold opacity-60 tracking-widest mb-1">Balanço do Período</p>
+                        <p className={cn("text-2xl font-display font-bold", balance >= 0 ? "text-primary" : "text-error")}>
+                          {balance.toLocaleString('pt-PT', { style: 'currency', currency: 'EUR' })}
+                        </p>
+                      </Card>
+                    </div>
+
+                    {statsPeriod === 'annual' && (
+                      <section className="space-y-4">
+                        <h3 className="text-lg font-bold">Evolução Mensal ({statsYear})</h3>
+                        <div className="h-72 w-full bg-surface-container-lowest p-4 rounded-3xl border border-outline-variant/10">
+                          <ResponsiveContainer width="100%" height="100%">
+                            <BarChart data={monthlyData}>
+                              <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f0f0f0" />
+                              <XAxis dataKey="name" axisLine={false} tickLine={false} tick={{ fontSize: 10 }} />
+                              <YAxis axisLine={false} tickLine={false} tick={{ fontSize: 10 }} />
+                              <Tooltip 
+                                cursor={{ fill: 'transparent' }}
+                                contentStyle={{ borderRadius: '16px', border: 'none', boxShadow: '0 10px 25px rgba(0,0,0,0.1)' }}
+                              />
+                              <Legend />
+                              <Bar dataKey="receitas" fill="#006c4a" radius={[4, 4, 0, 0]} />
+                              <Bar dataKey="despesas" fill="#ba1a1a" radius={[4, 4, 0, 0]} />
+                            </BarChart>
+                          </ResponsiveContainer>
+                        </div>
+                      </section>
+                    )}
+
+                    <section className="grid grid-cols-1 lg:grid-cols-2 gap-8">
+                      <div className="space-y-4">
+                        <h3 className="text-lg font-bold">Gastos por Categoria</h3>
+                        {pieData.length > 0 ? (
+                          <div className="h-64 w-full flex items-center justify-center bg-surface-container-lowest rounded-3xl border border-outline-variant/10">
+                            <ResponsiveContainer width="100%" height="100%">
+                              <PieChart>
+                                <Pie
+                                  data={pieData}
+                                  cx="50%"
+                                  cy="50%"
+                                  innerRadius={60}
+                                  outerRadius={80}
+                                  paddingAngle={5}
+                                  dataKey="value"
+                                >
+                                  {pieData.map((entry, index) => (
+                                    <Cell key={`cell-${index}`} fill={CATEGORY_COLORS[entry.name] || '#454652'} />
+                                  ))}
+                                </Pie>
+                                <Tooltip />
+                              </PieChart>
+                            </ResponsiveContainer>
+                          </div>
+                        ) : (
+                          <div className="h-64 flex items-center justify-center bg-surface-container-lowest rounded-3xl border border-outline-variant/10 text-on-surface-variant text-sm italic">
+                            Sem despesas neste período.
+                          </div>
+                        )}
+                      </div>
+
+                      <div className="space-y-4">
+                        <h3 className="text-lg font-bold">Top Categorias</h3>
+                        <div className="space-y-3">
+                          {pieData.sort((a, b) => b.value - a.value).slice(0, 5).map((item) => (
+                            <div key={item.name} className="p-4 bg-surface-container-lowest rounded-2xl border border-outline-variant/10 flex justify-between items-center">
+                              <div className="flex items-center gap-3">
+                                <div className="w-3 h-3 rounded-full" style={{ backgroundColor: CATEGORY_COLORS[item.name] || '#ccc' }} />
+                                <span className="font-medium text-sm">{item.name}</span>
+                              </div>
+                              <div className="text-right">
+                                <p className="font-display font-bold text-sm">
+                                  {item.value.toLocaleString('pt-PT', { style: 'currency', currency: 'EUR' })}
+                                </p>
+                                <p className="text-[10px] text-on-surface-variant opacity-60">
+                                  {((item.value / expenses) * 100).toFixed(1)}% do total
+                                </p>
+                              </div>
+                            </div>
+                          ))}
+                          {pieData.length === 0 && (
+                            <p className="text-center py-12 text-on-surface-variant text-sm italic">Nenhum dado disponível.</p>
+                          )}
+                        </div>
+                      </div>
+                    </section>
+                  </div>
+                );
+              })()}
+            </motion.div>
+          )}
           {activeTab === 'history' && (
             <motion.div 
               key="history"
@@ -703,6 +1243,12 @@ Estrutura a tua resposta com uma breve introdução encorajadora, seguida dos po
           label="Histórico"
         />
         <NavButton 
+          active={activeTab === 'stats'} 
+          onClick={() => setActiveTab('stats')}
+          icon={<BarChartIcon />}
+          label="Stats"
+        />
+        <NavButton 
           active={activeTab === 'ai'} 
           onClick={() => setActiveTab('ai')}
           icon={<Sparkles />}
@@ -755,6 +1301,38 @@ Estrutura a tua resposta com uma breve introdução encorajadora, seguida dos po
           <img src={LOGO_URL} alt="Logo" className="w-16 h-16 object-contain" referrerPolicy="no-referrer" />
         </div>
         <CategoryManager categories={categories} onUpdate={refreshData} />
+      </Modal>
+
+      {/* API Key Modal */}
+      <Modal show={showApiKeyModal} onClose={() => setShowApiKeyModal(false)} title="Configurar API Key">
+        <div className="space-y-6">
+          <div className="flex justify-center py-2">
+            <Key className="w-12 h-12 text-primary" />
+          </div>
+          <p className="text-sm text-on-surface-variant text-center">
+            Insira a sua chave da API do Google Gemini para obter conselhos personalizados.
+          </p>
+          <div className="space-y-2">
+            <label className="text-xs font-bold text-on-surface-variant uppercase tracking-widest">Chave da API</label>
+            <input 
+              type="password" 
+              value={userProfile.apiKey || ''}
+              onChange={(e) => {
+                const newKey = e.target.value;
+                setUserProfile(prev => ({ ...prev, apiKey: newKey }));
+                storageService.updateProfile({ apiKey: newKey });
+              }}
+              placeholder="AIza..."
+              className="w-full bg-surface-container-low rounded-xl px-4 py-3 outline-none focus:ring-2 ring-primary/20"
+            />
+          </div>
+          <Button onClick={() => setShowApiKeyModal(false)} className="w-full py-4">
+            Guardar e Fechar
+          </Button>
+          <p className="text-[10px] text-on-surface-variant/60 text-center">
+            A sua chave é guardada apenas localmente no seu dispositivo.
+          </p>
+        </div>
       </Modal>
 
       {/* About Modal */}
@@ -852,16 +1430,27 @@ function CategoryManager({ categories, onUpdate }: { categories: Category[], onU
   const [newCatName, setNewCatName] = useState('');
   const [newCatType, setNewCatType] = useState<'income' | 'expense'>('expense');
 
-  const handleAdd = () => {
-    if (!newCatName) return;
-    storageService.addCategory({ name: newCatName, type: newCatType, color: '#' + Math.floor(Math.random()*16777215).toString(16) });
-    setNewCatName('');
-    onUpdate();
+  const handleAdd = async () => {
+    if (!newCatName || !auth.currentUser) return;
+    try {
+      await addDoc(collection(db, 'categories'), {
+        uid: auth.currentUser.uid,
+        name: newCatName,
+        type: newCatType,
+        color: '#' + Math.floor(Math.random()*16777215).toString(16)
+      });
+      setNewCatName('');
+    } catch (error) {
+      console.error('Erro ao adicionar categoria:', error);
+    }
   };
 
-  const handleDelete = (id: string) => {
-    storageService.deleteCategory(id);
-    onUpdate();
+  const handleDelete = async (id: string) => {
+    try {
+      await deleteDoc(doc(db, 'categories', id));
+    } catch (error) {
+      console.error('Erro ao eliminar categoria:', error);
+    }
   };
 
   return (
@@ -937,29 +1526,37 @@ function AddTransactionForm({ editingTransaction, categories, onSuccess }: { edi
     }
   }, [editingTransaction]);
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!amount || !category) return;
+    if (!amount || !category || !auth.currentUser) return;
     
     setIsSubmitting(true);
-    if (editingTransaction) {
-      storageService.updateTransaction(editingTransaction.id, {
-        amount: parseFloat(amount),
-        type,
-        category,
-        description
-      });
-    } else {
-      storageService.addTransaction({
-        amount: parseFloat(amount),
-        type,
-        category,
-        description,
-        date: new Date().toISOString()
-      });
+    try {
+      if (editingTransaction) {
+        await updateDoc(doc(db, 'transactions', editingTransaction.id), {
+          amount: parseFloat(amount),
+          type,
+          category,
+          description,
+          date: editingTransaction.date // Keep original date or update if needed
+        });
+      } else {
+        await addDoc(collection(db, 'transactions'), {
+          uid: auth.currentUser.uid,
+          amount: parseFloat(amount),
+          type,
+          category,
+          description,
+          date: new Date().toISOString(),
+          createdAt: new Date().toISOString()
+        });
+      }
+      onSuccess();
+    } catch (error) {
+      console.error('Erro ao guardar transação:', error);
+    } finally {
+      setIsSubmitting(false);
     }
-    setIsSubmitting(false);
-    onSuccess();
   };
 
   const filteredCategories = categories.filter(c => c.type === type);
