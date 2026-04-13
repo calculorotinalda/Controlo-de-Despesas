@@ -29,7 +29,8 @@ import {
   BarChart as BarChartIcon,
   Calendar,
   Filter,
-  Facebook
+  Facebook,
+  Globe
 } from 'lucide-react';
 import { 
   AreaChart, 
@@ -81,6 +82,191 @@ import { storageService, Category, Transaction } from './services/storage';
 // --- Constants ---
 
 const LOGO_URL = 'https://img.icons8.com/fluency/512/sales-performance.png';
+
+type Language = 'pt' | 'es' | 'fr' | 'en' | 'de';
+
+const TRANSLATIONS: Record<Language, any> = {
+  pt: {
+    dashboard: 'Dashboard',
+    history: 'Histórico',
+    stats: 'Estatísticas',
+    ai: 'Consultor AI',
+    categories: 'Categorias',
+    apiKey: 'Inserir API Key Manual',
+    about: 'Sobre',
+    features: 'Funcionalidades',
+    logout: 'Sair',
+    balance: 'Saldo Total',
+    income: 'Receitas',
+    expenses: 'Despesas',
+    recentActivity: 'Atividade Recente',
+    distribution: 'Distribuição de Gastos',
+    monthly: 'Mensal',
+    annual: 'Anual',
+    year: 'Ano',
+    month: 'Mês',
+    totalIncome: 'Total Receitas',
+    totalExpenses: 'Total Despesas',
+    periodBalance: 'Balanço do Período',
+    evolution: 'Evolução Mensal',
+    login: 'Entrar no Atelier',
+    register: 'Registar Agora',
+    email: 'Endereço de Email',
+    password: 'Palavra-passe',
+    or: 'Ou',
+    terms: 'Termos de Utilização',
+    privacy: 'Política de Privacidade',
+    createAccount: 'Criar Conta',
+    accessAtelier: 'Aceder ao Atelier',
+    alreadyHaveAccount: 'Já tem conta? Entre aqui',
+    dontHaveAccount: 'Não tem conta? Registe-se',
+    apiKeyHelp: 'Introduza a sua chave do Google Gemini para ativar o consultor de IA.',
+  },
+  en: {
+    dashboard: 'Dashboard',
+    history: 'History',
+    stats: 'Statistics',
+    ai: 'AI Advisor',
+    categories: 'Categories',
+    apiKey: 'Insert API Key Manually',
+    about: 'About',
+    features: 'Features',
+    logout: 'Logout',
+    balance: 'Total Balance',
+    income: 'Income',
+    expenses: 'Expenses',
+    recentActivity: 'Recent Activity',
+    distribution: 'Spending Distribution',
+    monthly: 'Monthly',
+    annual: 'Annual',
+    year: 'Year',
+    month: 'Month',
+    totalIncome: 'Total Income',
+    totalExpenses: 'Total Expenses',
+    periodBalance: 'Period Balance',
+    evolution: 'Monthly Evolution',
+    login: 'Enter Atelier',
+    register: 'Register Now',
+    email: 'Email Address',
+    password: 'Password',
+    or: 'Or',
+    terms: 'Terms of Use',
+    privacy: 'Privacy Policy',
+    createAccount: 'Create Account',
+    accessAtelier: 'Access Atelier',
+    alreadyHaveAccount: 'Already have an account? Login here',
+    dontHaveAccount: 'Don\'t have an account? Register',
+    apiKeyHelp: 'Enter your Google Gemini key to enable the AI advisor.',
+  },
+  es: {
+    dashboard: 'Tablero',
+    history: 'Historial',
+    stats: 'Estadísticas',
+    ai: 'Consultor IA',
+    categories: 'Categorías',
+    apiKey: 'Insertar API Key Manual',
+    about: 'Acerca de',
+    features: 'Funcionalidades',
+    logout: 'Cerrar sesión',
+    balance: 'Saldo Total',
+    income: 'Ingresos',
+    expenses: 'Gastos',
+    recentActivity: 'Actividad Reciente',
+    distribution: 'Distribución de Gastos',
+    monthly: 'Mensual',
+    annual: 'Anual',
+    year: 'Año',
+    month: 'Mes',
+    totalIncome: 'Total Ingresos',
+    totalExpenses: 'Total Gastos',
+    periodBalance: 'Balance del Período',
+    evolution: 'Evolución Mensual',
+    login: 'Entrar al Atelier',
+    register: 'Registrarse Ahora',
+    email: 'Correo Electrónico',
+    password: 'Contraseña',
+    or: 'O',
+    terms: 'Términos de Uso',
+    privacy: 'Política de Privacidad',
+    createAccount: 'Crear Cuenta',
+    accessAtelier: 'Acceder al Atelier',
+    alreadyHaveAccount: '¿Ya tienes cuenta? Entra aquí',
+    dontHaveAccount: '¿No tienes cuenta? Regístrate',
+    apiKeyHelp: 'Introduce tu clave de Google Gemini para activar o consultor de IA.',
+  },
+  fr: {
+    dashboard: 'Tableau de bord',
+    history: 'Historique',
+    stats: 'Statistiques',
+    ai: 'Conseiller IA',
+    categories: 'Catégories',
+    apiKey: 'Insérer la clé API manuellement',
+    about: 'À propos',
+    features: 'Fonctionnalités',
+    logout: 'Déconnexion',
+    balance: 'Solde Total',
+    income: 'Revenus',
+    expenses: 'Dépenses',
+    recentActivity: 'Activité Récente',
+    distribution: 'Répartition des Dépenses',
+    monthly: 'Mensuel',
+    annual: 'Annuel',
+    year: 'Année',
+    month: 'Mois',
+    totalIncome: 'Total Revenus',
+    totalExpenses: 'Total Dépenses',
+    periodBalance: 'Solde de la Période',
+    evolution: 'Évolution Mensuelle',
+    login: 'Entrer dans l\'Atelier',
+    register: 'S\'inscrire Maintenant',
+    email: 'Adresse E-mail',
+    password: 'Mot de passe',
+    or: 'Ou',
+    terms: 'Conditions d\'Utilisation',
+    privacy: 'Politique de Confidentialité',
+    createAccount: 'Créer um Compte',
+    accessAtelier: 'Accéder à l\'Atelier',
+    alreadyHaveAccount: 'Vous avez déjà um compte ? Connectez-vous',
+    dontHaveAccount: 'Vous n\'avez pas de compte ? Inscrivez-vous',
+    apiKeyHelp: 'Entrez votre clé Google Gemini pour activer le conseiller IA.',
+  },
+  de: {
+    dashboard: 'Dashboard',
+    history: 'Verlauf',
+    stats: 'Statistiken',
+    ai: 'KI-Berater',
+    categories: 'Kategorien',
+    apiKey: 'API-Key manuell eingeben',
+    about: 'Über',
+    features: 'Funktionen',
+    logout: 'Abmelden',
+    balance: 'Gesamtguthaben',
+    income: 'Einnahmen',
+    expenses: 'Ausgaben',
+    recentActivity: 'Letzte Aktivitäten',
+    distribution: 'Ausgabenverteilung',
+    monthly: 'Monatlich',
+    annual: 'Jährlich',
+    year: 'Jahr',
+    month: 'Monat',
+    totalIncome: 'Gesamteinnahmen',
+    totalExpenses: 'Gesamtausgaben',
+    periodBalance: 'Zeitraum-Bilanz',
+    evolution: 'Monatliche Entwicklung',
+    login: 'Atelier betreten',
+    register: 'Jetzt registrieren',
+    email: 'E-Mail-Adresse',
+    password: 'Passwort',
+    or: 'Oder',
+    terms: 'Nutzungsbedingungen',
+    privacy: 'Datenschutzrichtlinie',
+    createAccount: 'Konto erstellen',
+    accessAtelier: 'Atelier aufrufen',
+    alreadyHaveAccount: 'Haben Sie bereits ein Konto? Hier anmelden',
+    dontHaveAccount: 'Haben Sie kein Konto? Registrieren',
+    apiKeyHelp: 'Geben Sie Ihren Google Gemini-Key ein, um den KI-Berater zu aktivieren.',
+  }
+};
 
 const CATEGORIES = {
   income: ['Salário', 'Investimentos', 'Presente', 'Venda', 'Outros'],
@@ -142,6 +328,60 @@ const Card = ({ children, className }: { children: React.ReactNode, className?: 
   </div>
 );
 
+const LanguageSelector = ({ current, onChange }: { current: Language, onChange: (l: Language) => void }) => {
+  const [isOpen, setIsOpen] = useState(false);
+  const langs: { code: Language, label: string, flag: string }[] = [
+    { code: 'pt', label: 'Português', flag: '🇵🇹' },
+    { code: 'en', label: 'English', flag: '🇬🇧' },
+    { code: 'es', label: 'Español', flag: '🇪🇸' },
+    { code: 'fr', label: 'Français', flag: '🇫🇷' },
+    { code: 'de', label: 'Deutsch', flag: '🇩🇪' },
+  ];
+
+  return (
+    <div className="relative">
+      <button 
+        onClick={() => setIsOpen(!isOpen)}
+        className="flex items-center gap-2 px-3 py-2 rounded-xl bg-surface-container-low hover:bg-surface-container-high transition-colors text-sm font-bold"
+      >
+        <Globe className="w-4 h-4 text-primary" />
+        <span className="uppercase">{current}</span>
+      </button>
+
+      <AnimatePresence>
+        {isOpen && (
+          <>
+            <div className="fixed inset-0 z-[110]" onClick={() => setIsOpen(false)} />
+            <motion.div 
+              initial={{ opacity: 0, y: 10, scale: 0.95 }}
+              animate={{ opacity: 1, y: 0, scale: 1 }}
+              exit={{ opacity: 0, y: 10, scale: 0.95 }}
+              className="absolute right-0 mt-2 w-40 bg-surface border border-outline-variant/20 rounded-2xl shadow-2xl z-[111] overflow-hidden p-1"
+            >
+              {langs.map((l) => (
+                <button
+                  key={l.code}
+                  onClick={() => {
+                    onChange(l.code);
+                    setIsOpen(false);
+                  }}
+                  className={cn(
+                    "w-full flex items-center gap-3 px-4 py-3 text-sm font-medium transition-colors rounded-xl",
+                    current === l.code ? "bg-primary/10 text-primary" : "hover:bg-surface-container-highest text-on-surface-variant"
+                  )}
+                >
+                  <span className="text-lg">{l.flag}</span>
+                  {l.label}
+                </button>
+              ))}
+            </motion.div>
+          </>
+        )}
+      </AnimatePresence>
+    </div>
+  );
+};
+
 // --- Main App ---
 
 export default function App() {
@@ -166,6 +406,9 @@ export default function App() {
   const [aiAdvice, setAiAdvice] = useState<string>('');
   const [isAiLoading, setIsAiLoading] = useState(false);
   const [showSplash, setShowSplash] = useState(true);
+  const [language, setLanguage] = useState<Language>('pt');
+
+  const t = TRANSLATIONS[language];
 
   // Auth States
   const [isRegistering, setIsRegistering] = useState(false);
@@ -310,8 +553,10 @@ export default function App() {
       console.error('Erro no login Facebook:', error);
       if (error.code === 'auth/account-exists-with-different-credential') {
         setAuthError('Já existe uma conta com este email associada a outro método de login.');
+      } else if (error.code === 'auth/operation-not-allowed') {
+        setAuthError('O login pelo Facebook não está ativado na consola do Firebase. Por favor, ative-o em Authentication > Sign-in method e insira o App ID e App Secret fornecidos.');
       } else {
-        setAuthError('Falha ao entrar com o Facebook.');
+        setAuthError('Falha ao entrar com o Facebook. Verifique se o App ID e App Secret estão configurados corretamente na consola do Firebase.');
       }
     } finally {
       setIsAuthLoading(false);
@@ -547,14 +792,14 @@ Estrutura a tua resposta com uma breve introdução encorajadora, seguida dos po
             <div className="space-y-1">
               <h1 className="text-3xl font-serif font-light tracking-tight text-stone-900">Atelier Financeiro</h1>
               <p className="text-stone-500 text-sm font-medium uppercase tracking-widest">
-                {isRegistering ? 'Criar Conta' : 'Aceder ao Atelier'}
+                {isRegistering ? t.createAccount : t.accessAtelier}
               </p>
             </div>
           </div>
           
           <form onSubmit={handleEmailAuth} className="space-y-5">
             <div className="space-y-2">
-              <label className="text-[10px] font-bold text-stone-400 uppercase tracking-[0.2em] ml-1">Endereço de Email</label>
+              <label className="text-[10px] font-bold text-stone-400 uppercase tracking-[0.2em] ml-1">{t.email}</label>
               <input 
                 type="email" 
                 value={email}
@@ -566,7 +811,7 @@ Estrutura a tua resposta com uma breve introdução encorajadora, seguida dos po
               />
             </div>
             <div className="space-y-2">
-              <label className="text-[10px] font-bold text-stone-400 uppercase tracking-[0.2em] ml-1">Palavra-passe</label>
+              <label className="text-[10px] font-bold text-stone-400 uppercase tracking-[0.2em] ml-1">{t.password}</label>
               <input 
                 type="password" 
                 value={password}
@@ -593,7 +838,7 @@ Estrutura a tua resposta com uma breve introdução encorajadora, seguida dos po
               className="w-full py-4 rounded-2xl font-bold shadow-lg shadow-primary/10 h-14"
               disabled={isAuthLoading}
             >
-              {isAuthLoading ? <Loader2 className="w-6 h-6 animate-spin" /> : (isRegistering ? 'Registar Agora' : 'Entrar no Atelier')}
+              {isAuthLoading ? <Loader2 className="w-6 h-6 animate-spin" /> : (isRegistering ? t.register : t.login)}
             </Button>
           </form>
 
@@ -602,7 +847,7 @@ Estrutura a tua resposta com uma breve introdução encorajadora, seguida dos po
               <div className="w-full border-t border-stone-100"></div>
             </div>
             <div className="relative flex justify-center text-[10px] uppercase tracking-[0.3em]">
-              <span className="bg-white px-4 text-stone-300 font-bold">Ou</span>
+              <span className="bg-white px-4 text-stone-300 font-bold">{t.or}</span>
             </div>
           </div>
 
@@ -632,13 +877,13 @@ Estrutura a tua resposta com uma breve introdução encorajadora, seguida dos po
               disabled={isAuthLoading}
               className="text-sm text-primary font-bold hover:underline decoration-2 underline-offset-4"
             >
-              {isRegistering ? 'Já tem conta? Entre aqui' : 'Não tem conta? Registe-se'}
+              {isRegistering ? t.alreadyHaveAccount : t.dontHaveAccount}
             </button>
           </div>
           
           <p className="text-[10px] text-stone-400 text-center pt-6 leading-relaxed">
             Ao aceder, concorda com os nossos <br />
-            <span className="underline">Termos de Utilização</span> e <span className="underline">Política de Privacidade</span>.
+            <span className="underline">{t.terms}</span> e <span className="underline">{t.privacy}</span>.
           </p>
         </motion.div>
       </div>
@@ -660,14 +905,15 @@ Estrutura a tua resposta com uma breve introdução encorajadora, seguida dos po
             referrerPolicy="no-referrer"
           />
         </div>
-        <div className="flex items-center gap-3">
+        <div className="flex items-center gap-4">
+          <LanguageSelector current={language} onChange={setLanguage} />
           <div className="text-right hidden sm:block">
             <p className="text-sm font-bold">{userProfile.displayName}</p>
           </div>
           <button 
             onClick={handleLogout}
             className="w-10 h-10 rounded-full bg-primary-container flex items-center justify-center text-on-primary hover:bg-error/20 hover:text-error transition-colors group relative"
-            title="Sair"
+            title={t.logout}
           >
             <UserIcon className="w-6 h-6 group-hover:hidden" />
             <LogOut className="w-5 h-5 hidden group-hover:block" />
@@ -704,41 +950,44 @@ Estrutura a tua resposta com uma breve introdução encorajadora, seguida dos po
               <nav className="flex-1 space-y-2">
                 <MenuOption 
                   icon={<LayoutDashboard />} 
-                  label="Dashboard" 
+                  label={t.dashboard} 
                   active={activeTab === 'dashboard'}
                   onClick={() => { setActiveTab('dashboard'); setShowMenu(false); }} 
                 />
                 <MenuOption 
                   icon={<History />} 
-                  label="Histórico" 
+                  label={t.history} 
                   active={activeTab === 'history'}
                   onClick={() => { setActiveTab('history'); setShowMenu(false); }} 
                 />
                 <MenuOption 
                   icon={<BarChartIcon />} 
-                  label="Estatísticas" 
+                  label={t.stats} 
                   active={activeTab === 'stats'}
                   onClick={() => { setActiveTab('stats'); setShowMenu(false); }} 
                 />
                 <MenuOption 
                   icon={<Settings />} 
-                  label="Categorias" 
+                  label={t.categories} 
                   onClick={() => { setShowCategoryManager(true); setShowMenu(false); }} 
                 />
                 <MenuOption 
                   icon={<Key />} 
-                  label="Inserir API Key Manual" 
+                  label={t.apiKey} 
                   onClick={() => { setShowApiKeyModal(true); setShowMenu(false); }} 
                 />
+                <p className="px-4 py-1 text-[10px] text-on-surface-variant/60 leading-tight">
+                  {t.apiKeyHelp}
+                </p>
                 <hr className="my-4 border-outline-variant/30" />
                 <MenuOption 
                   icon={<Info />} 
-                  label="Sobre" 
+                  label={t.about} 
                   onClick={() => { setShowAbout(true); setShowMenu(false); }} 
                 />
                 <MenuOption 
                   icon={<Sparkles />} 
-                  label="Funcionalidades" 
+                  label={t.features} 
                   onClick={() => { setShowFeatures(true); setShowMenu(false); }} 
                 />
               </nav>
@@ -748,7 +997,7 @@ Estrutura a tua resposta com uma breve introdução encorajadora, seguida dos po
                 className="flex items-center gap-4 p-4 text-tertiary hover:bg-tertiary-container/20 rounded-xl transition-colors mt-auto"
               >
                 <LogOut className="w-5 h-5" />
-                <span className="font-bold">Sair</span>
+                <span className="font-bold">{t.logout}</span>
               </button>
             </motion.div>
           </>
@@ -775,7 +1024,7 @@ Estrutura a tua resposta com uma breve introdução encorajadora, seguida dos po
                 "balance-halo p-8 rounded-3xl text-center space-y-2",
                 stats.balance < 0 && "balance-halo-deficit"
               )}>
-                <p className="text-sm font-medium text-on-surface-variant uppercase tracking-widest">Saldo Total</p>
+                <p className="text-sm font-medium text-on-surface-variant uppercase tracking-widest">{t.balance}</p>
                 <h2 className="text-5xl font-display font-extrabold tracking-tighter">
                   {stats.balance.toLocaleString('pt-PT', { style: 'currency', currency: 'EUR' })}
                 </h2>
@@ -786,7 +1035,7 @@ Estrutura a tua resposta com uma breve introdução encorajadora, seguida dos po
                 <Card className="bg-secondary-container/30">
                   <div className="flex items-center gap-2 mb-2">
                     <TrendingUp className="w-4 h-4 text-secondary" />
-                    <span className="text-xs font-medium text-secondary">Rendimentos</span>
+                    <span className="text-xs font-medium text-secondary">{t.income}</span>
                   </div>
                   <p className="text-xl font-display font-bold">
                     {stats.income.toLocaleString('pt-PT', { style: 'currency', currency: 'EUR' })}
@@ -795,7 +1044,7 @@ Estrutura a tua resposta com uma breve introdução encorajadora, seguida dos po
                 <Card className="bg-tertiary-container/30">
                   <div className="flex items-center gap-2 mb-2">
                     <TrendingDown className="w-4 h-4 text-tertiary" />
-                    <span className="text-xs font-medium text-tertiary">Despesas</span>
+                    <span className="text-xs font-medium text-tertiary">{t.expenses}</span>
                   </div>
                   <p className="text-xl font-display font-bold">
                     {stats.expenses.toLocaleString('pt-PT', { style: 'currency', currency: 'EUR' })}
@@ -830,7 +1079,7 @@ Estrutura a tua resposta com uma breve introdução encorajadora, seguida dos po
               {/* Pie Chart */}
               {pieData.length > 0 && (
                 <section className="space-y-4">
-                  <h3 className="text-lg">Distribuição de Gastos</h3>
+                  <h3 className="text-lg">{t.distribution}</h3>
                   <div className="h-64 w-full flex items-center justify-center">
                     <ResponsiveContainer width="100%" height="100%">
                       <PieChart>
@@ -869,19 +1118,19 @@ Estrutura a tua resposta com uma breve introdução encorajadora, seguida dos po
               </div>
               
               <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-                <h2 className="text-2xl">Estatísticas</h2>
+                <h2 className="text-2xl">{t.stats}</h2>
                 <div className="flex bg-surface-container-low p-1 rounded-xl">
                   <button 
                     onClick={() => setStatsPeriod('monthly')}
                     className={cn("px-4 py-2 rounded-lg text-sm font-bold transition-all", statsPeriod === 'monthly' ? "bg-surface shadow-sm text-primary" : "text-on-surface-variant")}
                   >
-                    Mensal
+                    {t.monthly}
                   </button>
                   <button 
                     onClick={() => setStatsPeriod('annual')}
                     className={cn("px-4 py-2 rounded-lg text-sm font-bold transition-all", statsPeriod === 'annual' ? "bg-surface shadow-sm text-primary" : "text-on-surface-variant")}
                   >
-                    Anual
+                    {t.annual}
                   </button>
                 </div>
               </div>
@@ -955,19 +1204,19 @@ Estrutura a tua resposta com uma breve introdução encorajadora, seguida dos po
                   <div className="space-y-8">
                     <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
                       <Card className="bg-secondary-container/20 border border-secondary/10">
-                        <p className="text-[10px] uppercase font-bold text-secondary tracking-widest mb-1">Total Receitas</p>
+                        <p className="text-[10px] uppercase font-bold text-secondary tracking-widest mb-1">{t.totalIncome}</p>
                         <p className="text-2xl font-display font-bold text-secondary">
                           {income.toLocaleString('pt-PT', { style: 'currency', currency: 'EUR' })}
                         </p>
                       </Card>
                       <Card className="bg-tertiary-container/20 border border-tertiary/10">
-                        <p className="text-[10px] uppercase font-bold text-tertiary tracking-widest mb-1">Total Despesas</p>
+                        <p className="text-[10px] uppercase font-bold text-tertiary tracking-widest mb-1">{t.totalExpenses}</p>
                         <p className="text-2xl font-display font-bold text-tertiary">
                           {expenses.toLocaleString('pt-PT', { style: 'currency', currency: 'EUR' })}
                         </p>
                       </Card>
                       <Card className={cn("border", balance >= 0 ? "bg-primary/5 border-primary/10" : "bg-error/5 border-error/10")}>
-                        <p className="text-[10px] uppercase font-bold opacity-60 tracking-widest mb-1">Balanço do Período</p>
+                        <p className="text-[10px] uppercase font-bold opacity-60 tracking-widest mb-1">{t.periodBalance}</p>
                         <p className={cn("text-2xl font-display font-bold", balance >= 0 ? "text-primary" : "text-error")}>
                           {balance.toLocaleString('pt-PT', { style: 'currency', currency: 'EUR' })}
                         </p>
@@ -976,7 +1225,7 @@ Estrutura a tua resposta com uma breve introdução encorajadora, seguida dos po
 
                     {statsPeriod === 'annual' && (
                       <section className="space-y-4">
-                        <h3 className="text-lg font-bold">Evolução Mensal ({statsYear})</h3>
+                        <h3 className="text-lg font-bold">{t.evolution} ({statsYear})</h3>
                         <div className="h-72 w-full bg-surface-container-lowest p-4 rounded-3xl border border-outline-variant/10">
                           <ResponsiveContainer width="100%" height="100%">
                             <BarChart data={monthlyData}>

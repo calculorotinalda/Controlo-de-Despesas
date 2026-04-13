@@ -1,0 +1,7 @@
+<?xml version='1.0' encoding='utf-8'?>
+<resources>
+    <string name="app_name">Atelier Financeiro</string>
+    <string name="title_activity_main">Atelier Financeiro</string>
+    <string name="package_name">com.calculorotina.atelier</string>
+    <string name="custom_url_scheme">com.calculorotina.atelier</string>
+</resources>
